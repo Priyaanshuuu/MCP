@@ -1,146 +1,115 @@
 # 1. Purpose
 
-This document defines the synthetic commerce data model used by the Commerce Operations Copilot.
+This document defines the data model used by the Commerce Operations Copilot.
 
-The application intentionally uses synthetic datasets instead of production databases to:
+The application uses **Prisma ORM** with a **SQLite** database to store synthetic commerce data. The schema is intentionally minimal while still representing the relationships required to investigate operational issues.
 
-- Keep the project self-contained
-- Ensure deterministic behavior
-- Allow repeatable testing
-- Avoid handling real customer information
-
-Although simplified, the data model mirrors the relationships found in a typical e-commerce platform.
+The data model supports the end-to-end workflow of identifying why an order is blocked and recommending an appropriate resolution.
 
 ---
 
-# 2. Domain Overview
+# 2. Design Principles
 
-The investigation workflow spans multiple business domains.
+The schema is designed around the following principles:
+
+- Normalize related entities.
+- Keep relationships explicit.
+- Use enums for predictable state transitions.
+- Store only the data required for the chosen workflow.
+- Prefer readability over completeness.
+
+---
+
+# 3. Entity Relationship Diagram
 
 ```mermaid
 erDiagram
 
 ORDER ||--|| PAYMENT : has
 
-ORDER ||--|| SHIPMENT : creates
+ORDER ||--|| SHIPMENT : has
 
-ORDER ||--o{ ORDER_ITEM : contains
+ORDER ||--o{ ORDERITEM : contains
 
-ORDER_ITEM }o--|| INVENTORY : reserves
+ORDERITEM }o--|| INVENTORY : references
 
-ORDER ||--o{ INCIDENT : generates
+ORDER ||--o{ TIMELINEEVENT : generates
 ```
-
-The MCP server combines information from all these entities to determine why an order cannot progress through fulfillment.
 
 ---
 
-# 3. Entity Overview
+# 4. Database Models
 
-| Entity | Description |
-|----------|-------------|
-| Order | Customer purchase information |
-| Order Item | Individual products within an order |
-| Payment | Payment processing status |
-| Inventory | Product stock availability |
-| Shipment | Fulfillment information |
-| Incident | Investigation history |
+The system consists of five primary models.
+
+| Model | Purpose |
+|---------|----------|
+| Order | Represents a customer order |
+| Payment | Stores payment status |
+| Shipment | Stores shipment information |
+| Inventory | Tracks available stock |
+| TimelineEvent | Records operational events |
 
 ---
 
-# 4. Order
+# 5. Order
 
-Represents a customer purchase.
+The central entity in the system.
 
-Example
-
-```json
-{
-  "id": "ORD-102",
-  "customerName": "John Doe",
-  "status": "BLOCKED",
-  "paymentId": "PAY-102",
-  "shipmentId": "SHIP-102",
-  "createdAt": "2026-07-25T10:15:00Z"
-}
-```
-
-Fields
+### Fields
 
 | Field | Type | Description |
 |--------|------|-------------|
-| id | string | Unique order identifier |
-| customerName | string | Synthetic customer name |
-| status | enum | Current order status |
-| paymentId | string | Related payment |
-| shipmentId | string | Related shipment |
-| createdAt | ISO Date | Creation timestamp |
+| id | String | Unique order identifier |
+| customerName | String | Synthetic customer name |
+| status | OrderStatus | Current order status |
+| createdAt | DateTime | Order creation time |
+| updatedAt | DateTime | Last update timestamp |
 
-Possible Status Values
+### Relationships
 
-- CREATED
-- PAYMENT_PENDING
-- BLOCKED
-- READY_FOR_FULFILLMENT
-- SHIPPED
-- DELIVERED
-- CANCELLED
+- One Payment
+- One Shipment
+- Many Order Items
+- Many Timeline Events
 
 ---
 
-# 5. Order Item
+# 6. Order Item
 
-Each order may contain one or more products.
+Represents products included in an order.
 
-Example
-
-```json
-{
-  "id": "ITEM-1",
-  "orderId": "ORD-102",
-  "sku": "SKU-001",
-  "quantity": 2
-}
-```
-
-Fields
+### Fields
 
 | Field | Type |
 |--------|------|
-| id | string |
-| orderId | string |
-| sku | string |
-| quantity | number |
+| id | String |
+| orderId | String |
+| sku | String |
+| quantity | Int |
+
+### Relationships
+
+- Belongs to one Order
+- References one Inventory record
 
 ---
 
-# 6. Payment
+# 7. Payment
 
-Stores payment processing details.
+Represents payment processing information.
 
-Example
-
-```json
-{
-  "id": "PAY-102",
-  "orderId": "ORD-102",
-  "status": "FAILED",
-  "failureReason": "Card Declined",
-  "attempts": 2
-}
-```
-
-Fields
+### Fields
 
 | Field | Type |
 |--------|------|
-| id | string |
-| orderId | string |
-| status | enum |
-| failureReason | string |
-| attempts | number |
+| id | String |
+| orderId | String |
+| status | PaymentStatus |
+| failureReason | String? |
+| attempts | Int |
 
-Possible Status
+### Status Values
 
 - PENDING
 - SUCCESS
@@ -148,56 +117,20 @@ Possible Status
 
 ---
 
-# 7. Inventory
-
-Represents stock information for products.
-
-Example
-
-```json
-{
-  "sku": "SKU-001",
-  "available": 5,
-  "reserved": 2,
-  "warehouse": "BLR-01"
-}
-```
-
-Fields
-
-| Field | Type |
-|--------|------|
-| sku | string |
-| available | number |
-| reserved | number |
-| warehouse | string |
-
-Business Rules
-
-Inventory is considered unavailable when
-
-```
-available <= reserved
-```
-
----
-
 # 8. Shipment
 
 Represents fulfillment progress.
 
-Example
+### Fields
 
-```json
-{
-  "id": "SHIP-102",
-  "orderId": "ORD-102",
-  "status": "NOT_CREATED",
-  "carrier": null
-}
-```
+| Field | Type |
+|--------|------|
+| id | String |
+| orderId | String |
+| status | ShipmentStatus |
+| carrier | String? |
 
-Possible Status
+### Status Values
 
 - NOT_CREATED
 - CREATED
@@ -205,118 +138,158 @@ Possible Status
 - DELIVERED
 - FAILED
 
-Fields
+---
+
+# 9. Inventory
+
+Represents available stock for a product.
+
+### Fields
 
 | Field | Type |
 |--------|------|
-| id | string |
-| orderId | string |
-| status | enum |
-| carrier | string |
+| sku | String |
+| available | Int |
+| reserved | Int |
+| warehouse | String |
 
----
+### Business Rule
 
-# 9. Incident
+Inventory is considered unavailable when:
 
-Represents investigation history.
-
-Example
-
-```json
-{
-  "id": "INC-1",
-  "orderId": "ORD-102",
-  "reason": "Payment Failed",
-  "resolved": false,
-  "createdAt": "2026-07-25T11:00:00Z"
-}
+```
+available <= reserved
 ```
 
-Fields
+---
+
+# 10. Timeline Event
+
+Stores chronological events related to an order.
+
+### Fields
 
 | Field | Type |
 |--------|------|
-| id | string |
-| orderId | string |
-| reason | string |
-| resolved | boolean |
-| createdAt | ISO Date |
+| id | String |
+| orderId | String |
+| event | String |
+| timestamp | DateTime |
+
+### Example Timeline
+
+```
+10:00 AM  Order Created
+
+10:01 AM  Payment Attempted
+
+10:02 AM  Payment Failed
+
+10:04 AM  Inventory Reserved
+
+10:05 AM  Shipment Blocked
+```
+
+The timeline enables the MCP Server to explain *why* an order reached its current state rather than simply returning its latest status.
 
 ---
 
-# 10. Repository Layer
+# 11. Enumerations
 
-Each entity is accessed through a dedicated repository.
+### OrderStatus
+
+```
+CREATED
+
+PAYMENT_PENDING
+
+BLOCKED
+
+READY_FOR_FULFILLMENT
+
+SHIPPED
+
+DELIVERED
+
+CANCELLED
+```
+
+---
+
+### PaymentStatus
+
+```
+PENDING
+
+SUCCESS
+
+FAILED
+```
+
+---
+
+### ShipmentStatus
+
+```
+NOT_CREATED
+
+CREATED
+
+IN_TRANSIT
+
+DELIVERED
+
+FAILED
+```
+
+---
+
+# 12. Investigation Data Flow
+
+During an investigation, the business service retrieves information from multiple models.
 
 ```text
-Repositories
-
-↓
-
-Order Repository
-
-↓
-
-Payment Repository
-
-↓
-
-Inventory Repository
-
-↓
-
-Shipment Repository
-
-↓
-
-Incident Repository
-```
-
-Repositories isolate data access from business logic.
-
----
-
-# 11. Investigation Data Flow
-
-```mermaid
-flowchart TD
-
 Order
+
+↓
 
 Payment
 
-Inventory
+↓
 
 Shipment
 
 ↓
 
-Investigation Service
+Inventory
 
 ↓
 
-Root Cause Engine
+Timeline Events
+
+↓
+
+Business Rules
 
 ↓
 
 Investigation Report
 ```
 
-The investigation service gathers information from each repository before applying business rules.
+This aggregation allows the service to identify the primary blocker affecting fulfillment.
 
 ---
 
-# 12. Investigation Report
+# 13. Investigation Report Structure
 
-Every investigation returns a standardized response.
-
-Example
+The investigation service produces a standardized response.
 
 ```json
 {
+  "orderId": "ORD-102",
   "status": "BLOCKED",
   "rootCause": "Payment Failed",
-  "confidence": 0.95,
+  "confidence": 0.96,
   "evidence": [
     "Payment authorization failed",
     "Inventory available",
@@ -326,54 +299,31 @@ Example
 }
 ```
 
-Fields
-
-| Field | Description |
-|--------|-------------|
-| status | Overall operational status |
-| rootCause | Primary blocker |
-| confidence | Investigation confidence |
-| evidence | Supporting observations |
-| recommendedAction | Suggested resolution |
+This structured output is consumed by the MCP tool and ultimately presented to the user in natural language by the LLM.
 
 ---
 
-# 13. Business Rules
+# 14. Synthetic Data Strategy
 
-The investigation service applies the following simplified rules.
+The database contains only synthetic records.
 
-| Condition | Root Cause |
-|------------|------------|
-| Payment Failed | Payment Failure |
-| Inventory Unavailable | Inventory Blocked |
-| Shipment Missing | Fulfillment Delayed |
-| Everything Valid | Ready for Fulfillment |
+Seed data includes:
 
-Rules are evaluated in deterministic order to produce consistent results.
+- Orders in different lifecycle stages.
+- Successful and failed payments.
+- Available and unavailable inventory.
+- Completed and pending shipments.
+- Timeline events for each order.
 
----
-
-# 14. Data Validation
-
-Each entity is validated before use.
-
-Validation includes:
-
-- Required identifiers
-- Valid status values
-- Existing relationships
-- Non-negative inventory
-- Valid timestamps
-
-Invalid records are rejected before reaching business services.
+The seed is deterministic, ensuring consistent behavior during demonstrations and testing.
 
 ---
 
 # 15. Future Extensions
 
-The current model intentionally remains small.
+The current schema is intentionally limited to support the assignment scope.
 
-Possible future entities include:
+Potential future models include:
 
 - Customer
 - Warehouse
@@ -381,15 +331,14 @@ Possible future entities include:
 - Return
 - Refund
 - Invoice
-- Payment Gateway
 - Notification
 
-The architecture allows additional entities without changing existing investigation workflows.
+The existing relationships allow these entities to be added without significant architectural changes.
 
 ---
 
 # 16. Summary
 
-The data model provides a realistic but intentionally simplified representation of an e-commerce system.
+The data model provides a clean and realistic representation of a simplified commerce system.
 
-Its primary objective is to support deterministic investigations through the MCP server while keeping the implementation lightweight, explainable, and easy to verify.
+By combining relational modeling through Prisma with deterministic synthetic data, the application supports meaningful operational investigations while remaining lightweight, testable, and easy to extend.

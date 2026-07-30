@@ -1,284 +1,56 @@
 # 1. Purpose
 
-This document explains the major product decisions made during the planning phase of the project.
+This document explains the major product decisions made during the design of the Commerce Operations Copilot.
 
-The assignment intentionally leaves the problem space open-ended. Instead of implementing many unrelated features, the project focuses on solving one operational problem extremely well.
+The assignment intentionally provides an open problem statement. Rather than implementing a broad collection of unrelated features, this project focuses on solving one operational problem exceptionally well.
 
-Every decision documented here was made with the following constraints in mind:
-
-- Limited implementation time (3–4 hours)
-- AI-native workflow
-- MCP as the primary integration layer
-- Demonstrating product judgment over feature count
+Every decision documented here aims to maximize product value while keeping the implementation realistic within the assignment constraints.
 
 ---
 
 # 2. Product Vision
 
-The long-term vision is to build an AI Operations Copilot capable of helping commerce operations teams investigate and resolve operational issues independently.
+The long-term vision is to build an AI-native Operations Copilot that enables commerce operations teams to investigate and resolve operational issues independently.
 
-Rather than exposing internal systems directly to users, the copilot acts as an intelligent investigation assistant that understands business workflows and recommends appropriate actions.
+Instead of searching dashboards, databases, or internal tools, an operations executive should be able to ask natural language questions such as:
 
-The assistant should answer questions such as:
+> Why hasn't order ORD-102 shipped?
 
-- Why is this order blocked?
-- Why wasn't the order shipped?
-- What is preventing fulfillment?
-- What should I do next?
+The AI should investigate multiple systems, determine the most likely root cause, and recommend the next best action.
 
-The goal is to reduce engineering involvement in repetitive operational investigations.
+The user should never need to understand how the backend works.
 
 ---
 
-# 3. Product Philosophy
+# 3. Design Principles
 
-This project follows four guiding principles.
+The following principles influenced every product decision.
 
-## Business Capabilities
+## 3.1 AI-First
 
-The system exposes business capabilities instead of raw backend operations.
+The primary interface is a Large Language Model.
 
-Example:
+Users communicate with the AI.
 
-Good
+The AI communicates with the MCP Server.
 
-```
-Investigate Order
-Retry Payment
-Find Blocked Orders
-```
-
-Poor
-
-```
-Get Order
-Get Payment
-Update Shipment
-```
-
-Business-oriented tools allow the LLM to reason at the same abstraction level as an operations employee.
+The MCP Server communicates with backend services.
 
 ---
 
-## Explainability
+## 3.2 Business Capabilities Over CRUD
 
-Every investigation should explain:
+The MCP server exposes business actions rather than database operations.
 
-- What happened
-- Why it happened
-- Supporting evidence
-- Confidence level
-- Recommended next action
-
-The assistant should never return unexplained database values.
-
----
-
-## One Complete Workflow
-
-Instead of implementing multiple incomplete features, the project focuses on one complete investigation workflow.
-
-A complete end-to-end experience demonstrates stronger product thinking than several disconnected features.
-
----
-
-## AI-First Design
-
-The user interacts with the LLM.
-
-The LLM interacts with the MCP server.
-
-The MCP server performs business operations.
-
-The user never directly interacts with backend systems.
-
----
-
-# 4. Candidate Problem Areas Considered
-
-Several operational workflows were evaluated before selecting the final scope.
-
-## Option A — Order Investigation ✅ Selected
-
-Description
-
-Investigate why an order cannot progress through the fulfillment pipeline.
-
-Typical questions
-
-- Why is my order blocked?
-- Why wasn't it shipped?
-- What is preventing fulfillment?
-
-Advantages
-
-- Demonstrates multiple business systems.
-- Naturally requires reasoning.
-- Excellent fit for MCP.
-- Easy to explain during demo.
-- Realistic operational scenario.
-
-Disadvantages
-
-- Requires modeling several related datasets.
-
-Decision
-
-Selected.
-
----
-
-## Option B — Refund Management
-
-Description
-
-Assist operations with refund processing.
-
-Advantages
-
-- Easy workflow.
-- Simple business logic.
-
-Disadvantages
-
-- Limited investigation.
-- Mostly CRUD operations.
-- Less opportunity for AI reasoning.
-
-Decision
-
-Rejected.
-
-Reason
-
-The workflow was too transactional and did not showcase MCP capabilities effectively.
-
----
-
-## Option C — Inventory Management
-
-Description
-
-Investigate inventory shortages.
-
-Advantages
-
-- Real commerce use case.
-- Interesting business logic.
-
-Disadvantages
-
-- Requires warehouse modeling.
-- Less connected to customer-facing issues.
-
-Decision
-
-Rejected.
-
-Reason
-
-Would require additional logistics complexity beyond assignment scope.
-
----
-
-## Option D — Fraud Detection
-
-Description
-
-Analyze suspicious transactions.
-
-Advantages
-
-- Interesting AI use case.
-
-Disadvantages
-
-- Difficult to model realistically.
-- Requires risk scoring.
-- High implementation complexity.
-
-Decision
-
-Rejected.
-
-Reason
-
-Not achievable within the project constraints.
-
----
-
-# 5. Why Order Investigation Was Selected
-
-Order investigation naturally combines several business domains into one workflow.
-
-It requires information from:
-
-- Orders
-- Payments
-- Inventory
-- Shipment
-
-This allows the MCP server to demonstrate meaningful orchestration and reasoning instead of simple data retrieval.
-
-The workflow also mirrors real operational requests handled by commerce support teams.
-
----
-
-# 6. Why MCP Is Central
-
-The project intentionally avoids treating MCP as an additional API layer.
-
-Instead, the MCP server represents the operational knowledge of the business.
-
-The MCP tools expose complete business capabilities that an AI assistant can use during investigations.
-
-Without the MCP server, the LLM would only have access to isolated datasets.
-
-With MCP, the LLM gains structured operational capabilities.
-
-Example
-
-```
-User
-
-↓
-
-LLM
-
-↓
-
-Investigate Order
-
-↓
-
-Business Logic
-
-↓
-
-Structured Investigation Report
-```
-
----
-
-# 7. Why Business Tools Instead of CRUD APIs
-
-Early during planning, a CRUD-based design was considered.
-
-Example
+Instead of:
 
 ```
 getOrder()
-
 getPayment()
-
-getInventory()
+getShipment()
 ```
 
-Although technically correct, this approach places most reasoning responsibility on the LLM.
-
-Instead, the selected design exposes higher-level business tools.
-
-Example
+The system exposes:
 
 ```
 investigate_order()
@@ -286,120 +58,406 @@ investigate_order()
 execute_resolution()
 
 get_order_timeline()
+
+find_orders_needing_attention()
+```
+
+This allows the AI to reason at the same abstraction level as an operations executive.
+
+---
+
+## 3.3 Explainability
+
+Every investigation should answer four questions:
+
+- What happened?
+- Why did it happen?
+- What evidence supports the conclusion?
+- What should happen next?
+
+The assistant should explain operational decisions instead of simply returning raw database records.
+
+---
+
+## 3.4 Single Complete Workflow
+
+The project intentionally implements one complete workflow rather than multiple incomplete workflows.
+
+This demonstrates:
+
+- Product thinking
+- Engineering quality
+- MCP capabilities
+- Business reasoning
+
+without introducing unnecessary complexity.
+
+---
+
+# 4. Candidate Solutions Considered
+
+Before selecting the final workflow, several operational domains were evaluated.
+
+---
+
+## Option A — Order Investigation ✅ Selected
+
+Description
+
+Investigate why an order cannot proceed through fulfillment.
+
+Example Questions
+
+- Why hasn't my order shipped?
+- Why is this order blocked?
+- What is preventing fulfillment?
+
+Advantages
+
+- Requires reasoning across multiple domains.
+- Demonstrates MCP effectively.
+- Common real-world commerce problem.
+- Easy to demonstrate end-to-end.
+- Allows meaningful business recommendations.
+
+Disadvantages
+
+- Requires relationships between several entities.
+
+Decision
+
+Selected.
+
+Reason
+
+Provides the strongest demonstration of AI-assisted operational investigations while remaining achievable within the assignment scope.
+
+---
+
+## Option B — Refund Assistant
+
+Description
+
+Assist operations teams in processing customer refunds.
+
+Advantages
+
+- Simple implementation.
+- Easy business rules.
+
+Disadvantages
+
+- Mostly transactional.
+- Limited reasoning.
+- CRUD-heavy.
+- Weak MCP demonstration.
+
+Decision
+
+Rejected.
+
+---
+
+## Option C — Inventory Monitoring
+
+Description
+
+Monitor inventory shortages and replenishment.
+
+Advantages
+
+- Operationally useful.
+- Strong warehouse use case.
+
+Disadvantages
+
+- Less customer-facing.
+- Requires warehouse simulation.
+- More complex data model.
+
+Decision
+
+Rejected.
+
+---
+
+## Option D — Fraud Investigation
+
+Description
+
+Analyze suspicious payment activity.
+
+Advantages
+
+- Interesting AI use case.
+
+Disadvantages
+
+- Difficult to simulate realistically.
+- Requires scoring algorithms.
+- Large implementation effort.
+
+Decision
+
+Rejected.
+
+---
+
+# 5. Why Order Investigation?
+
+Order Investigation naturally combines multiple business domains into one coherent workflow.
+
+The investigation requires information from:
+
+- Orders
+- Payments
+- Inventory
+- Shipments
+
+This allows the MCP server to orchestrate multiple services while presenting a single business capability to the AI.
+
+Instead of exposing isolated backend systems, the product exposes operational knowledge.
+
+---
+
+# 6. Why MCP?
+
+The assignment specifically requires a remotely hosted MCP server.
+
+Rather than treating MCP as a transport protocol, this project treats it as the operational interface of the application.
+
+The MCP server becomes the only way an AI client interacts with the business domain.
+
+Without MCP
+
+```
+LLM
+
+↓
+
+REST APIs
+
+↓
+
+Database
+```
+
+With MCP
+
+```
+LLM
+
+↓
+
+Business Tools
+
+↓
+
+Business Services
+
+↓
+
+Repositories
+
+↓
+
+Prisma
+
+↓
+
+SQLite
+```
+
+This keeps AI interactions focused on operational capabilities instead of implementation details.
+
+---
+
+# 7. Why Next.js?
+
+Although the project does not require a frontend, Next.js provides:
+
+- Mature TypeScript tooling
+- Simple deployment
+- API capabilities (if required later)
+- Familiar development workflow
+
+The business logic remains framework-independent and can be moved to any Node.js runtime with minimal effort.
+
+---
+
+# 8. Why Prisma + SQLite?
+
+Several storage options were considered.
+
+## JSON Files
+
+Advantages
+
+- Extremely simple.
+
+Disadvantages
+
+- No relationships.
+- No type safety.
+- Manual querying.
+- Poor scalability.
+
+Decision
+
+Rejected.
+
+---
+
+## PostgreSQL
+
+Advantages
+
+- Production-ready.
+- Advanced querying.
+
+Disadvantages
+
+- Requires additional infrastructure.
+- Unnecessary complexity for the assignment.
+
+Decision
+
+Rejected.
+
+---
+
+## Prisma + SQLite ✅
+
+Advantages
+
+- Type-safe ORM.
+- Relational modeling.
+- Zero external dependencies.
+- Easy local development.
+- Easy migration to PostgreSQL.
+- Better demonstration of backend engineering.
+
+Decision
+
+Selected.
+
+---
+
+# 9. Why Repository Pattern?
+
+Business logic should never know how data is stored.
+
+Repositories isolate data access from business rules.
+
+Benefits
+
+- Easier testing.
+- Better maintainability.
+- Cleaner services.
+- Easier migration to another database.
+
+---
+
+# 10. Why a Layered Architecture?
+
+Each layer has exactly one responsibility.
+
+```
+LLM
+
+↓
+
+MCP
+
+↓
+
+Tools
+
+↓
+
+Services
+
+↓
+
+Repositories
+
+↓
+
+Prisma
+
+↓
+
+SQLite
 ```
 
 Benefits
 
-- Simpler tool selection.
-- Better reasoning.
-- Lower token usage.
-- Cleaner abstraction.
-- Easier future expansion.
+- Separation of concerns.
+- Easier debugging.
+- Better testing.
+- Clear ownership.
+- Future extensibility.
 
 ---
 
-# 8. Why Synthetic Data
+# 11. Product Success Metrics
 
-The assignment explicitly discourages using production data.
-
-Synthetic datasets provide several advantages.
-
-- Safe to publish.
-- Predictable test cases.
-- Easy verification.
-- No privacy concerns.
-- Reproducible demonstrations.
-
-The mock data will intentionally include realistic operational failures such as:
-
-- Payment decline
-- Inventory unavailable
-- Shipment delay
-- Warehouse timeout
-
----
-
-# 9. Product Scope
-
-The project intentionally limits itself to one operational investigation workflow.
-
-Included
-
-- Investigate blocked order
-- Explain root cause
-- Recommend action
-- Execute selected resolution
-- Demonstrate MCP integration
-
-Excluded
-
-- Customer portal
-- Refund workflows
-- Warehouse dashboards
-- Reporting
-- Authentication
-- Real payment providers
-
----
-
-# 10. Product Success Metrics
-
-The product is considered successful if an operations employee can:
+The product succeeds if an operations executive can:
 
 - Ask a natural language question.
 - Receive an accurate diagnosis.
 - Understand the reasoning.
-- Execute an appropriate resolution.
-- Complete the workflow without engineering assistance.
+- Execute a recommended action.
+- Resolve the issue without engineering assistance.
 
 ---
 
-# 11. Future Roadmap
+# 12. Future Roadmap
 
-The current implementation represents the first milestone.
+Potential future capabilities include:
 
-Possible future extensions include:
+### Phase 2
 
-Phase 2
-
-- Refund investigation
-- Return management
-- Warehouse assignment
-- Carrier tracking
-
-Phase 3
-
-- Fraud investigation
+- Refund investigations
+- Return investigations
 - Customer communication
-- Analytics
-- Automated incident creation
+- Incident generation
 
-Phase 4
+### Phase 3
 
-- Multi-tenant commerce support
 - ERP integrations
-- Real payment providers
-- Production deployment
+- Payment gateway integrations
+- Warehouse systems
+- Carrier APIs
+
+### Phase 4
+
+- Multi-tenant commerce platform
+- Analytics
+- Workflow automation
+- Human approval flows
+
+The current implementation intentionally excludes these features to maintain focus.
 
 ---
 
-# 12. Product Principles
+# 13. Key Product Decisions
 
-Every future feature should satisfy the following principles.
-
-- Solves a real operational problem.
-- Reduces engineering dependency.
-- Exposes business capabilities.
-- Works naturally with LLM tool calling.
-- Produces explainable outputs.
-- Can be independently verified.
+| Decision | Reason |
+|----------|--------|
+| Single workflow | Demonstrates depth over breadth |
+| MCP-first design | Makes AI integration central |
+| Business-oriented tools | Better abstraction than CRUD |
+| Prisma + SQLite | Strong backend engineering with minimal infrastructure |
+| Layered architecture | Maintainable and testable |
+| Synthetic data | Safe and deterministic |
 
 ---
 
-# 13. Final Decision Summary
+# 14. Conclusion
 
-After evaluating multiple commerce workflows, Order Investigation was selected because it provides the strongest balance between product value, implementation effort, and demonstration quality.
+The Commerce Operations Copilot is intentionally designed around one complete operational workflow: investigating blocked orders.
 
-The workflow naturally requires business reasoning across multiple domains, making the MCP server a core component of the solution rather than a thin wrapper around backend APIs.
+By exposing business-oriented capabilities through a hosted MCP server, the system enables AI models to reason about operational problems without requiring direct access to backend systems.
 
-This decision aligns with the primary objective of the assignment: demonstrating thoughtful product design and meaningful MCP integration within a constrained implementation scope.
+This approach aligns with the assignment objective of building an AI-native solution where the MCP server is a core architectural component rather than an auxiliary integration.

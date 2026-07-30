@@ -1,139 +1,96 @@
 # 1. Purpose
 
-The Model Context Protocol (MCP) server is the central component of the Commerce Operations Copilot.
+The Model Context Protocol (MCP) Server is the core component of the Commerce Operations Copilot.
 
-Rather than exposing raw backend APIs, the MCP server exposes business capabilities that allow a Large Language Model (LLM) to investigate and resolve operational issues autonomously.
+Instead of allowing an AI model to directly interact with backend systems or databases, the MCP Server exposes a set of business-oriented tools that represent real operational capabilities.
 
-The MCP acts as the bridge between AI reasoning and commerce operations.
+The MCP Server is responsible for:
 
----
+- Exposing business capabilities
+- Validating tool requests
+- Delegating work to business services
+- Returning structured responses
+- Providing a safe interface between the LLM and the commerce backend
 
-# 2. Design Philosophy
-
-The MCP server was designed around one principle:
-
-> **Expose business capabilities, not database operations.**
-
-The LLM should never need to understand how orders, payments, shipments, or inventory are stored.
-
-Instead, it should ask high-level operational questions through dedicated tools.
-
-Example
-
-❌ CRUD-oriented
-
-```
-getOrder()
-
-getPayment()
-
-updateShipment()
-```
-
-✅ Business-oriented
-
-```
-investigate_order()
-
-execute_resolution()
-
-get_order_timeline()
-
-find_orders_needing_attention()
-```
-
-This approach keeps business logic centralized while making the LLM significantly more effective.
+It is intentionally designed as the operational layer of the application rather than a thin wrapper around backend APIs.
 
 ---
 
-# 3. Why MCP Is the Core Product
+# 2. Design Principles
 
-Without MCP
+The MCP Server follows these principles:
 
-```mermaid
-flowchart LR
+- Business-first tool design
+- Thin tool handlers
+- Structured inputs and outputs
+- Deterministic execution
+- Safe action execution
+- Framework-independent implementation
 
-User --> LLM
+Each tool represents a complete business capability instead of a low-level database operation.
 
-LLM --> Database
+---
+
+# 3. MCP Architecture
+
+```text
+User
+
+↓
+
+Claude / ChatGPT
+
+↓
+
+Hosted MCP Server
+
+↓
+
+Tool
+
+↓
+
+Business Service
+
+↓
+
+Repository
+
+↓
+
+Prisma
+
+↓
+
+SQLite
 ```
 
-The LLM would receive isolated records and would need to infer business meaning.
+The MCP Server is the only entry point used by AI clients.
 
 ---
 
-With MCP
+# 4. Available Tools
 
-```mermaid
-flowchart LR
-
-User --> LLM
-
-LLM --> MCP
-
-MCP --> Business Services
-
-Business Services --> Data
-```
-
-The MCP performs investigation, reasoning, validation, and action execution before returning structured information.
-
-This architecture transforms the AI from a chatbot into an operational assistant.
-
----
-
-# 4. MCP Responsibilities
-
-The MCP server is responsible for:
-
-- Advertising available business tools.
-- Validating tool inputs.
-- Executing business services.
-- Returning structured outputs.
-- Preventing invalid operations.
-- Providing deterministic responses.
-- Isolating the LLM from implementation details.
-
----
-
-# 5. Tool Selection Philosophy
-
-Every tool should satisfy the following rules.
-
-✔ Solves a complete operational task.
-
-✔ Requires business reasoning.
-
-✔ Can be explained to non-technical users.
-
-✔ Is reusable by different AI clients.
-
-✔ Produces structured outputs.
-
-The server intentionally avoids exposing low-level CRUD operations.
-
----
-
-# 6. Tool Overview
+The server exposes four tools.
 
 | Tool | Purpose |
 |------|---------|
-| investigate_order | Determine why an order is blocked or delayed |
-| execute_resolution | Perform a safe operational action |
-| get_order_timeline | Show important events in order lifecycle |
-| find_orders_needing_attention | Identify high-priority operational issues |
+| investigate_order | Diagnose why an order cannot proceed through fulfillment |
+| execute_resolution | Execute a predefined operational resolution |
+| get_order_timeline | Display the lifecycle events of an order |
+| find_orders_needing_attention | Return orders requiring operational review |
+
+Each tool is designed around an operational task rather than CRUD functionality.
 
 ---
 
-# 7. Tool Specification
+# 5. Tool Specifications
 
----
+## 5.1 investigate_order
 
-## investigate_order
+### Description
 
-### Purpose
-
-Investigates an order across multiple operational systems and identifies the most probable root cause preventing fulfillment.
+Investigates an order across payment, inventory, and shipment systems to determine the primary reason it is blocked.
 
 ### Input
 
@@ -143,44 +100,11 @@ Investigates an order across multiple operational systems and identifies the mos
 }
 ```
 
-### Internal Workflow
-
-```text
-Validate Order
-
-↓
-
-Load Order
-
-↓
-
-Load Payment
-
-↓
-
-Load Inventory
-
-↓
-
-Load Shipment
-
-↓
-
-Apply Business Rules
-
-↓
-
-Determine Root Cause
-
-↓
-
-Generate Recommendation
-```
-
 ### Output
 
 ```json
 {
+  "orderId": "ORD-102",
   "status": "BLOCKED",
   "rootCause": "Payment Failed",
   "confidence": 0.96,
@@ -193,19 +117,13 @@ Generate Recommendation
 }
 ```
 
-### Failure Cases
-
-- Order not found
-- Invalid Order ID
-- Missing commerce records
-
 ---
 
-## execute_resolution
+## 5.2 execute_resolution
 
-### Purpose
+### Description
 
-Safely performs predefined operational actions.
+Executes a predefined operational action for an order.
 
 ### Supported Actions
 
@@ -227,24 +145,18 @@ Safely performs predefined operational actions.
 ```json
 {
   "success": true,
-  "message": "Payment retried successfully.",
+  "message": "Payment retry completed.",
   "updatedStatus": "READY_FOR_FULFILLMENT"
 }
 ```
 
-### Validation
-
-Only predefined actions may be executed.
-
-Arbitrary operations are rejected.
-
 ---
 
-## get_order_timeline
+## 5.3 get_order_timeline
 
-### Purpose
+### Description
 
-Returns the chronological operational history of an order.
+Returns the important lifecycle events associated with an order.
 
 ### Input
 
@@ -258,31 +170,33 @@ Returns the chronological operational history of an order.
 
 ```json
 {
+  "orderId": "ORD-102",
   "timeline": [
-    "Order Created",
-    "Payment Failed",
-    "Inventory Reserved",
-    "Shipment Pending"
+    {
+      "time": "2026-07-25T10:00:00Z",
+      "event": "Order Created"
+    },
+    {
+      "time": "2026-07-25T10:02:00Z",
+      "event": "Payment Failed"
+    },
+    {
+      "time": "2026-07-25T10:04:00Z",
+      "event": "Inventory Reserved"
+    }
   ]
 }
 ```
 
 ---
 
-## find_orders_needing_attention
+## 5.4 find_orders_needing_attention
 
-### Purpose
+### Description
 
-Returns orders requiring immediate operational review.
+Returns orders that require immediate operational review.
 
-### Example Criteria
-
-- Failed payment
-- Inventory unavailable
-- Shipment delayed
-- Missing fulfillment
-
-### Output
+### Example Response
 
 ```json
 [
@@ -290,121 +204,154 @@ Returns orders requiring immediate operational review.
     "orderId": "ORD-102",
     "priority": "HIGH",
     "reason": "Payment Failed"
+  },
+  {
+    "orderId": "ORD-108",
+    "priority": "MEDIUM",
+    "reason": "Shipment Delayed"
   }
 ]
 ```
 
 ---
 
-# 8. Tool Execution Flow
+# 6. Tool Execution Lifecycle
 
-```mermaid
-sequenceDiagram
+```text
+User Prompt
 
-participant LLM
-participant MCP
-participant Service
-participant Repository
+↓
 
-LLM->>MCP: investigate_order()
+LLM Understands Intent
 
-MCP->>Service: investigateOrder()
+↓
 
-Service->>Repository: Load Commerce Data
+LLM Selects MCP Tool
 
-Repository-->>Service: Records
+↓
 
-Service-->>MCP: Investigation Report
+Tool Input Validation
 
-MCP-->>LLM: Structured Response
+↓
+
+Business Service Execution
+
+↓
+
+Repository Queries
+
+↓
+
+Prisma Database Access
+
+↓
+
+Structured Result
+
+↓
+
+LLM Generates Final Response
 ```
 
 ---
 
-# 9. Input Validation
+# 7. Input Validation
 
 Every tool validates:
 
 - Required fields
 - Data types
 - Supported actions
-- Existing Order IDs
+- Existing order identifiers
 
-Invalid requests return structured errors instead of runtime failures.
+Invalid requests return structured validation errors before business logic is executed.
 
----
-
-# 10. Safety Considerations
-
-The MCP server intentionally limits what actions can be executed.
-
-Safety measures include:
-
-- No arbitrary code execution.
-- No unrestricted database access.
-- Fixed action whitelist.
-- Synthetic datasets only.
-- Read-only investigation tools by default.
-- Action execution restricted to predefined operations.
-
-These constraints reduce the likelihood of unintended behavior while keeping demonstrations deterministic.
-
----
-
-# 11. Error Response Format
-
-All tools return predictable error structures.
-
-Example
+Example:
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "ORDER_NOT_FOUND",
-    "message": "No order exists with ID ORD-999."
+    "code": "INVALID_ORDER_ID",
+    "message": "Order ORD-999 does not exist."
   }
 }
 ```
 
-This enables the LLM to generate clear and consistent user-facing explanations.
+---
+
+# 8. Safety Considerations
+
+To ensure predictable and safe behavior, the MCP Server enforces the following constraints:
+
+- Only predefined tools are exposed.
+- Only predefined actions may be executed.
+- No arbitrary SQL queries.
+- No arbitrary code execution.
+- Synthetic data only.
+- No access to production systems.
+- Business services validate all operations before execution.
+
+These constraints ensure that the AI operates within a controlled environment.
 
 ---
 
-# 12. Extensibility
+# 9. Error Handling
 
-The MCP architecture is designed to support additional operational capabilities.
+Errors are returned in a consistent format.
 
-Future tools may include:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "PAYMENT_NOT_FOUND",
+    "message": "Payment information for the order could not be located."
+  }
+}
+```
+
+This allows AI clients to explain failures clearly and consistently.
+
+---
+
+# 10. Extensibility
+
+The MCP Server is designed to support additional business capabilities without modifying existing tools.
+
+Examples of future tools include:
 
 - investigate_refund
 - investigate_return
 - investigate_inventory
 - investigate_carrier_delay
 - notify_customer
-- escalate_incident
 
-Adding new tools does not require changes to existing tool contracts.
-
----
-
-# 13. Design Decisions
-
-| Decision | Reason |
-|-----------|--------|
-| Business-oriented tools | Better alignment with operational workflows |
-| Structured outputs | Easier for LLM reasoning |
-| Service layer | Keeps tools lightweight |
-| Whitelisted actions | Improves safety |
-| Synthetic data | Reproducible demonstrations |
-| Validation at tool boundary | Prevents invalid requests |
+The current implementation intentionally limits scope to one complete workflow.
 
 ---
 
-# 14. Summary
+# 11. Why Business-Oriented Tools?
 
-The MCP server is intentionally designed as the operational intelligence layer of the Commerce Operations Copilot.
+Traditional APIs expose resources:
 
-Instead of exposing backend resources directly, it provides high-level business capabilities that allow AI models to investigate operational issues, recommend appropriate actions, and execute safe resolutions.
+- GET /orders
+- GET /payments
+- PATCH /shipments
 
-This design keeps the MCP central to the product while maintaining clear separation between AI reasoning, business logic, and data access.
+The MCP Server instead exposes operational capabilities:
+
+- investigate_order
+- execute_resolution
+- get_order_timeline
+
+This allows AI models to work with business concepts instead of implementation details, improving both usability and maintainability.
+
+---
+
+# 12. Summary
+
+The MCP Server is the central integration point of the Commerce Operations Copilot.
+
+It provides a controlled, business-oriented interface that enables AI models to investigate operational issues, recommend actions, and execute safe resolutions without direct access to backend systems.
+
+By keeping tools lightweight and delegating business logic to dedicated services, the MCP Server remains modular, secure, and extensible while satisfying the assignment's requirement of making MCP a core part of the product.

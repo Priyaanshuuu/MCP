@@ -1,215 +1,303 @@
-# Problem Statement
-# 1. Overview
+# 1. Introduction
 
-Commerce operations teams frequently investigate issues related to orders, payments, inventory, and shipment fulfillment. These investigations usually require engineers because operational data is spread across multiple systems and interpreting that data requires business knowledge.
+Commerce operations teams are responsible for ensuring that customer orders move successfully through the order lifecycle—from placement and payment to fulfillment and delivery.
 
-The objective of this project is to build an AI-native Operations Copilot that enables non-engineering operations teams to independently investigate and resolve common commerce issues.
+When an order becomes blocked, delayed, or fails unexpectedly, operations teams often depend on backend engineers to investigate the issue. Although the required information exists within internal systems, it is spread across multiple domains such as orders, payments, inventory, and shipments. Understanding the relationship between these systems requires technical knowledge that many operations users do not possess.
 
-Instead of exposing raw APIs or database records, the system will provide business-oriented capabilities through a remotely hosted Model Context Protocol (MCP) server. Large Language Models (LLMs) such as Claude or ChatGPT will use these capabilities to investigate problems, determine probable root causes, and recommend appropriate resolutions.
+This dependency increases investigation time, delays issue resolution, and consumes engineering bandwidth for repetitive operational tasks.
 
-# 2. Problem
+This project aims to reduce that dependency by building an AI-native Commerce Operations Copilot powered by a remotely hosted Model Context Protocol (MCP) server.
 
-In many commerce organizations, operational issues such as failed payments, delayed shipments, inventory conflicts, and fulfillment failures require engineering support.
+---
 
-Typical questions include:
+# 2. Problem Statement
 
-- Why hasn't this order shipped?
-- Why did the payment fail?
-- Is inventory blocking fulfillment?
+Commerce operations teams frequently encounter questions such as:
+
+- Why hasn't order **ORD-102** shipped?
+- Why is an order still blocked?
+- Is payment preventing fulfillment?
+- Is inventory unavailable?
 - What action should be taken to resolve this issue?
 
-Although the underlying information exists, it is distributed across different systems. Operations teams often lack direct access to both the data and the business logic required to interpret it.
+Answering these questions typically requires manually checking multiple systems, correlating their data, and applying business rules to identify the root cause.
 
-As a result:
+Because this process relies on engineering support, operational investigations become slower and less scalable.
 
-- Engineers spend time answering repetitive operational questions.
-- Issue resolution becomes slower.
-- Operations teams remain dependent on technical teams.
-- Business context is lost when only raw data is available.
+The goal of this project is to allow an AI assistant to perform these investigations independently through structured business capabilities exposed by an MCP server.
 
-# 3. Proposed Solution
+---
 
-Build an AI-powered Commerce Operations Copilot backed by a remotely hosted MCP server.
+# 3. Target User
 
-The MCP server will expose business capabilities rather than simple CRUD operations.
+## Primary User
 
-The LLM will:
+**Commerce Operations Executive**
 
-1. Understand the user's request.
-2. Select the appropriate MCP tool.
-3. Execute the tool.
-4. Interpret the returned structured data.
-5. Explain findings in natural language.
+Typical responsibilities include:
 
-This allows the AI assistant to function as an intelligent operations partner instead of a chatbot with database access.
+- Monitoring order health
+- Investigating delayed orders
+- Resolving operational incidents
+- Coordinating with payment and fulfillment teams
+- Escalating unresolved issues
 
-# 4. Target User
+The target user understands commerce workflows but is **not expected to understand databases, backend APIs, or implementation details.**
 
-Primary User
+---
 
-Commerce Operations Executive
+# 4. Proposed Solution
 
-Responsibilities
+The solution consists of a remotely hosted MCP server that exposes business-oriented tools.
 
-- Investigating blocked orders
-- Resolving payment issues
-- Monitoring fulfillment status
-- Escalating incidents when required
+Instead of giving the AI direct access to databases or CRUD APIs, the MCP server provides operational capabilities such as:
 
-Technical Expertise
+- Investigate an order
+- View an order timeline
+- Execute predefined resolutions
+- Find orders requiring attention
 
-Low to Moderate
+A Large Language Model (LLM) interprets the user's request, selects the appropriate MCP tool, and presents the investigation results in natural language.
 
-The user understands commerce operations but is not expected to understand databases or backend systems.
+This allows operations users to interact with the system conversationally while keeping business logic centralized within the backend.
 
-# 5. Primary Workflow
+---
 
-This project intentionally focuses on one complete workflow instead of many partially implemented features.
+# 5. Solution Overview
 
-Workflow
+```text
+Operations User
 
-Investigate a blocked order.
+        │
 
-Example
+        ▼
 
-User
+Claude / ChatGPT
 
-"Why hasn't order ORD-102 shipped?"
+        │
+        │  (Tool Selection)
+        ▼
 
-↓
+Hosted MCP Server
 
-LLM selects
+        │
 
-investigate_order
+        ▼
 
-↓
+Business Services
 
-MCP investigates
+        │
 
-- Order
-- Payment
-- Inventory
-- Shipment
+        ▼
 
-↓
+Repository Layer
 
-MCP returns
+        │
 
-- Root Cause
-- Supporting Evidence
-- Confidence
-- Recommended Resolution
+        ▼
 
-↓
+Prisma ORM
 
-LLM explains the findings to the user.
+        │
 
-# 6. Goals
+        ▼
 
-The project aims to:
+SQLite Database
+```
 
-- Demonstrate an AI-native operational workflow.
-- Make the MCP server the central component of the architecture.
-- Reduce dependence on engineers for common operational investigations.
-- Provide meaningful business-oriented tools instead of exposing raw APIs.
-- Produce explainable investigation reports with recommended actions.
+The MCP server acts as the only interface between the LLM and backend systems.
 
-# 7. Non-Goals
+---
 
-The following are intentionally excluded from this project.
+# 6. Project Goals
 
-- Complete commerce backend
+The project aims to achieve the following objectives:
+
+- Reduce engineering dependency for operational investigations.
+- Demonstrate meaningful use of the Model Context Protocol.
+- Build business-oriented AI capabilities instead of exposing raw APIs.
+- Produce explainable investigation reports.
+- Keep the implementation modular and maintainable.
+- Demonstrate clean backend engineering practices.
+
+---
+
+# 7. Scope
+
+## Included
+
+The project includes:
+
+- A remotely hosted MCP server.
+- TypeScript implementation.
+- Prisma ORM with SQLite.
+- Synthetic commerce data.
+- Business service layer.
+- Repository pattern.
+- Order investigation workflow.
+- Resolution recommendations.
+- Runtime verification and testing.
+
+---
+
+## Excluded
+
+The following are intentionally out of scope:
+
 - Authentication
-- Authorization
 - User management
+- Frontend application
 - Payment gateway integration
-- Real inventory systems
-- Production databases
-- Real customer information
-- Complex frontend
-- Multi-tenant support
-
-These exclusions allow development effort to focus on MCP capabilities and business logic.
-
-# 8. Scope
-
-Included
-
-- Hosted MCP server
-- Synthetic commerce dataset
-- Investigation workflow
-- Business-oriented MCP tools
-- Structured investigation reports
-- Resolution recommendations
-- Focused verification
-
-Excluded
-
+- Real commerce systems
+- Customer notifications
+- Warehouse management
 - Refund processing
 - Fraud detection
-- Warehouse optimization
-- Customer communication
-- Analytics dashboards
-- Production deployment pipeline
+- Production infrastructure
+
+These exclusions keep the implementation focused on the assignment objective: demonstrating an MCP-centric backend.
+
+---
+
+# 8. Primary Workflow
+
+The project focuses on one complete operational workflow.
+
+### Investigate a Blocked Order
+
+```text
+User
+
+↓
+
+"Why hasn't ORD-102 shipped?"
+
+↓
+
+LLM understands the request
+
+↓
+
+LLM selects investigate_order
+
+↓
+
+MCP executes business logic
+
+↓
+
+Payment Repository
+
+Inventory Repository
+
+Shipment Repository
+
+↓
+
+Investigation Service
+
+↓
+
+Root Cause
+
+↓
+
+Recommendation
+
+↓
+
+LLM explains the result
+```
+
+This workflow demonstrates end-to-end reasoning without exposing implementation details to the user.
+
+---
 
 # 9. Assumptions
 
-The following assumptions are made throughout development.
+The implementation assumes:
 
-- All commerce data is synthetic.
-- Only one operations workflow is implemented.
-- The LLM supports MCP tool calling.
-- Mock datasets accurately represent realistic commerce scenarios.
-- Users provide valid order identifiers during investigations.
+- The AI client supports MCP tool calling.
+- Commerce data is synthetic and deterministic.
+- SQLite is sufficient for the assignment scope.
+- Business rules are simplified representations of real commerce systems.
+- The user provides a valid Order ID when requesting investigations.
+
+---
 
 # 10. Success Criteria
 
 The project will be considered successful if:
 
-✓ An LLM can successfully connect to the hosted MCP server.
+- The MCP server is remotely accessible.
+- An AI client can discover available tools.
+- The AI selects the correct tool for an investigation.
+- The investigation correctly identifies the operational blocker.
+- Recommendations are actionable and explainable.
+- The complete workflow can be demonstrated in an end-to-end demo.
 
-✓ The MCP exposes meaningful business capabilities.
-
-✓ The LLM automatically selects the correct tool based on user intent.
-
-✓ The investigation identifies the correct operational blocker.
-
-✓ The returned report contains actionable recommendations.
-
-✓ The complete workflow can be demonstrated end-to-end.
+---
 
 # 11. Risks
 
 | Risk | Mitigation |
 |------|------------|
-| LLM selects incorrect tool | Use descriptive tool names and detailed descriptions |
-| Unrealistic mock data | Create representative commerce scenarios |
-| Business logic becomes tightly coupled | Separate services from MCP tool implementations |
-| Scope creep | Restrict implementation to a single workflow |
-| Limited development time | Prioritize core investigation functionality |
+| Incorrect tool selection by the LLM | Clear tool descriptions and schemas |
+| Unrealistic mock data | Representative synthetic commerce scenarios |
+| Business logic tightly coupled with tools | Dedicated service layer |
+| Scope expansion | Restrict implementation to a single workflow |
+| Limited development time | Prioritize core investigation capabilities |
 
-# 12. Guiding Engineering Principles
+---
 
-The following principles guide every implementation decision.
+# 12. Engineering Principles
 
-1. Business capabilities over CRUD APIs.
+The following principles guide every technical decision.
 
-2. MCP remains the central integration point.
+### Business-First Design
 
-3. Business logic is separated from transport logic.
+The system exposes business capabilities rather than CRUD operations.
 
-4. Small, composable services.
+---
 
-5. Explainable AI outputs.
+### Separation of Concerns
 
-6. Synthetic and deterministic datasets.
+Each architectural layer has a single responsibility.
 
-7. Incremental development with verifiable milestones.
+- MCP → Tool Interface
+- Services → Business Logic
+- Repositories → Data Access
+- Prisma → Persistence
 
-8. Code readability over premature optimization.
+---
+
+### Explainability
+
+Every investigation should explain:
+
+- What happened
+- Why it happened
+- Supporting evidence
+- Recommended action
+
+---
+
+### Deterministic Behavior
+
+Given the same inputs and database state, the system should always produce the same investigation result.
+
+---
+
+### Extensibility
+
+The architecture should support additional commerce workflows without requiring significant structural changes.
+
+---
 
 # 13. Expected Outcome
 
-The final system should behave as an AI Operations Copilot capable of independently investigating common commerce issues using business-aware MCP tools.
+The final deliverable is an AI-powered Commerce Operations Copilot capable of independently investigating common commerce issues through a hosted MCP server.
 
-Rather than returning isolated database records, the system should provide structured investigation reports that identify operational blockers, explain the reasoning behind the diagnosis, and recommend appropriate next actions.
+Instead of exposing backend implementation details, the system provides structured business capabilities that allow an LLM to understand operational context, identify root causes, and recommend appropriate actions.
+
+This approach demonstrates how MCP can serve as the operational intelligence layer between AI models and commerce systems while maintaining a clean, modular, and production-inspired backend architecture.
