@@ -1,0 +1,410 @@
+# 1. Purpose
+
+The Model Context Protocol (MCP) server is the central component of the Commerce Operations Copilot.
+
+Rather than exposing raw backend APIs, the MCP server exposes business capabilities that allow a Large Language Model (LLM) to investigate and resolve operational issues autonomously.
+
+The MCP acts as the bridge between AI reasoning and commerce operations.
+
+---
+
+# 2. Design Philosophy
+
+The MCP server was designed around one principle:
+
+> **Expose business capabilities, not database operations.**
+
+The LLM should never need to understand how orders, payments, shipments, or inventory are stored.
+
+Instead, it should ask high-level operational questions through dedicated tools.
+
+Example
+
+❌ CRUD-oriented
+
+```
+getOrder()
+
+getPayment()
+
+updateShipment()
+```
+
+✅ Business-oriented
+
+```
+investigate_order()
+
+execute_resolution()
+
+get_order_timeline()
+
+find_orders_needing_attention()
+```
+
+This approach keeps business logic centralized while making the LLM significantly more effective.
+
+---
+
+# 3. Why MCP Is the Core Product
+
+Without MCP
+
+```mermaid
+flowchart LR
+
+User --> LLM
+
+LLM --> Database
+```
+
+The LLM would receive isolated records and would need to infer business meaning.
+
+---
+
+With MCP
+
+```mermaid
+flowchart LR
+
+User --> LLM
+
+LLM --> MCP
+
+MCP --> Business Services
+
+Business Services --> Data
+```
+
+The MCP performs investigation, reasoning, validation, and action execution before returning structured information.
+
+This architecture transforms the AI from a chatbot into an operational assistant.
+
+---
+
+# 4. MCP Responsibilities
+
+The MCP server is responsible for:
+
+- Advertising available business tools.
+- Validating tool inputs.
+- Executing business services.
+- Returning structured outputs.
+- Preventing invalid operations.
+- Providing deterministic responses.
+- Isolating the LLM from implementation details.
+
+---
+
+# 5. Tool Selection Philosophy
+
+Every tool should satisfy the following rules.
+
+✔ Solves a complete operational task.
+
+✔ Requires business reasoning.
+
+✔ Can be explained to non-technical users.
+
+✔ Is reusable by different AI clients.
+
+✔ Produces structured outputs.
+
+The server intentionally avoids exposing low-level CRUD operations.
+
+---
+
+# 6. Tool Overview
+
+| Tool | Purpose |
+|------|---------|
+| investigate_order | Determine why an order is blocked or delayed |
+| execute_resolution | Perform a safe operational action |
+| get_order_timeline | Show important events in order lifecycle |
+| find_orders_needing_attention | Identify high-priority operational issues |
+
+---
+
+# 7. Tool Specification
+
+---
+
+## investigate_order
+
+### Purpose
+
+Investigates an order across multiple operational systems and identifies the most probable root cause preventing fulfillment.
+
+### Input
+
+```json
+{
+  "orderId": "ORD-102"
+}
+```
+
+### Internal Workflow
+
+```text
+Validate Order
+
+↓
+
+Load Order
+
+↓
+
+Load Payment
+
+↓
+
+Load Inventory
+
+↓
+
+Load Shipment
+
+↓
+
+Apply Business Rules
+
+↓
+
+Determine Root Cause
+
+↓
+
+Generate Recommendation
+```
+
+### Output
+
+```json
+{
+  "status": "BLOCKED",
+  "rootCause": "Payment Failed",
+  "confidence": 0.96,
+  "evidence": [
+    "Payment authorization failed",
+    "Inventory available",
+    "Shipment not created"
+  ],
+  "recommendedAction": "retry_payment"
+}
+```
+
+### Failure Cases
+
+- Order not found
+- Invalid Order ID
+- Missing commerce records
+
+---
+
+## execute_resolution
+
+### Purpose
+
+Safely performs predefined operational actions.
+
+### Supported Actions
+
+- retry_payment
+- release_inventory
+- recreate_shipment
+
+### Input
+
+```json
+{
+  "orderId": "ORD-102",
+  "action": "retry_payment"
+}
+```
+
+### Output
+
+```json
+{
+  "success": true,
+  "message": "Payment retried successfully.",
+  "updatedStatus": "READY_FOR_FULFILLMENT"
+}
+```
+
+### Validation
+
+Only predefined actions may be executed.
+
+Arbitrary operations are rejected.
+
+---
+
+## get_order_timeline
+
+### Purpose
+
+Returns the chronological operational history of an order.
+
+### Input
+
+```json
+{
+  "orderId": "ORD-102"
+}
+```
+
+### Output
+
+```json
+{
+  "timeline": [
+    "Order Created",
+    "Payment Failed",
+    "Inventory Reserved",
+    "Shipment Pending"
+  ]
+}
+```
+
+---
+
+## find_orders_needing_attention
+
+### Purpose
+
+Returns orders requiring immediate operational review.
+
+### Example Criteria
+
+- Failed payment
+- Inventory unavailable
+- Shipment delayed
+- Missing fulfillment
+
+### Output
+
+```json
+[
+  {
+    "orderId": "ORD-102",
+    "priority": "HIGH",
+    "reason": "Payment Failed"
+  }
+]
+```
+
+---
+
+# 8. Tool Execution Flow
+
+```mermaid
+sequenceDiagram
+
+participant LLM
+participant MCP
+participant Service
+participant Repository
+
+LLM->>MCP: investigate_order()
+
+MCP->>Service: investigateOrder()
+
+Service->>Repository: Load Commerce Data
+
+Repository-->>Service: Records
+
+Service-->>MCP: Investigation Report
+
+MCP-->>LLM: Structured Response
+```
+
+---
+
+# 9. Input Validation
+
+Every tool validates:
+
+- Required fields
+- Data types
+- Supported actions
+- Existing Order IDs
+
+Invalid requests return structured errors instead of runtime failures.
+
+---
+
+# 10. Safety Considerations
+
+The MCP server intentionally limits what actions can be executed.
+
+Safety measures include:
+
+- No arbitrary code execution.
+- No unrestricted database access.
+- Fixed action whitelist.
+- Synthetic datasets only.
+- Read-only investigation tools by default.
+- Action execution restricted to predefined operations.
+
+These constraints reduce the likelihood of unintended behavior while keeping demonstrations deterministic.
+
+---
+
+# 11. Error Response Format
+
+All tools return predictable error structures.
+
+Example
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ORDER_NOT_FOUND",
+    "message": "No order exists with ID ORD-999."
+  }
+}
+```
+
+This enables the LLM to generate clear and consistent user-facing explanations.
+
+---
+
+# 12. Extensibility
+
+The MCP architecture is designed to support additional operational capabilities.
+
+Future tools may include:
+
+- investigate_refund
+- investigate_return
+- investigate_inventory
+- investigate_carrier_delay
+- notify_customer
+- escalate_incident
+
+Adding new tools does not require changes to existing tool contracts.
+
+---
+
+# 13. Design Decisions
+
+| Decision | Reason |
+|-----------|--------|
+| Business-oriented tools | Better alignment with operational workflows |
+| Structured outputs | Easier for LLM reasoning |
+| Service layer | Keeps tools lightweight |
+| Whitelisted actions | Improves safety |
+| Synthetic data | Reproducible demonstrations |
+| Validation at tool boundary | Prevents invalid requests |
+
+---
+
+# 14. Summary
+
+The MCP server is intentionally designed as the operational intelligence layer of the Commerce Operations Copilot.
+
+Instead of exposing backend resources directly, it provides high-level business capabilities that allow AI models to investigate operational issues, recommend appropriate actions, and execute safe resolutions.
+
+This design keeps the MCP central to the product while maintaining clear separation between AI reasoning, business logic, and data access.

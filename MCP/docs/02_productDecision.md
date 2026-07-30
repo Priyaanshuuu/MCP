@@ -1,14 +1,3 @@
-# Product Decisions
-
-| Field | Value |
-|--------|-------|
-| Project | Commerce Operations Copilot |
-| Author | Priyanshu Sinha |
-| Status | Draft |
-| Version | 1.0 |
-
----
-
 # 1. Purpose
 
 This document explains the major product decisions made during the planning phase of the project.

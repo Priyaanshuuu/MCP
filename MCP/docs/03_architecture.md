@@ -1,14 +1,3 @@
-# System Architecture
-
-| Field | Value |
-|--------|-------|
-| Project | Commerce Operations Copilot |
-| Author | Priyanshu Sinha |
-| Status | Draft |
-| Version | 1.0 |
-
----
-
 # 1. Overview
 
 This document describes the technical architecture of the Commerce Operations Copilot.
