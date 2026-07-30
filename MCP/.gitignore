@@ -1,1 +1,9 @@
 node_modules
+dist
+/src/generated/prisma
+*.db
+*.db-journal
+.env
+.agents
+.claude
+.windsurf
