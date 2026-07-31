@@ -1,10 +1,6 @@
 import { Prisma } from "../generated/prisma/client.js";
 import prisma from "../lib/prisma.js";
 
-/**
- * Relations every order query returns, so `getAll` and `getById`
- * always produce the same shape.
- */
 const orderInclude = {
   payment: true,
   shipment: true,
