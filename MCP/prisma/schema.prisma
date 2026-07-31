@@ -6,3 +6,88 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+enum OrderStatus {
+  CREATED
+  BLOCKED
+  READY_FOR_FULFILLMENT
+  SHIPPED
+  DELIVERED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum ShipmentStatus {
+  NOT_CREATED
+  CREATED
+  IN_TRANSIT
+  DELIVERED
+}
+
+model Order {
+  id           String      @id
+  customerName String
+  status       OrderStatus
+
+  payment      Payment?
+  shipment     Shipment?
+  items         OrderItem[]
+  timeline      TimelineEvent[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  status        PaymentStatus
+  failureReason String?
+
+  orderId       String @unique
+  order         Order  @relation(fields: [orderId], references: [id])
+}
+
+model Shipment {
+  id        String          @id @default(cuid())
+  status    ShipmentStatus
+  carrier   String?
+
+  orderId   String @unique
+  order     Order  @relation(fields: [orderId], references: [id])
+}
+
+model Inventory {
+  sku        String @id
+  available  Int
+  reserved   Int
+  warehouse  String
+
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+
+  quantity  Int
+
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+
+  sku        String
+  inventory  Inventory @relation(fields: [sku], references: [sku])
+}
+
+model TimelineEvent {
+  id        String   @id @default(cuid())
+
+  event     String
+
+  timestamp DateTime @default(now())
+
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+}
