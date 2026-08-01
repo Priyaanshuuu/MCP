@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "test": "tsc && tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tooling.json",
     "start": "node build/index.js",
     "db:generate": "prisma generate",

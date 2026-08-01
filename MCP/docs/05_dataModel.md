@@ -289,15 +289,13 @@ The investigation service produces a standardized response.
   "orderId": "ORD-102",
   "status": "BLOCKED",
   "rootCause": "Payment Failed",
-  "confidence": 0.96,
-  "evidence": [
-    "Payment authorization failed",
-    "Inventory available",
-    "Shipment not created"
-  ],
-  "recommendedAction": "retry_payment"
+  "explanation": "Card declined by issuing bank",
+  "recommendation": "Retry the payment or ask the customer to use another payment method."
 }
 ```
+
+`rootCause` is constrained to a fixed set: `Payment Failed`, `Payment Pending`,
+`Inventory Unavailable`, `Shipment Not Created`, or `No Issues Found`.
 
 This structured output is consumed by the MCP tool and ultimately presented to the user in natural language by the LLM.
 

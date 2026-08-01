@@ -69,18 +69,63 @@ The MCP Server is the only entry point used by AI clients.
 
 ---
 
+## 3.1 Transports
+
+The same server and the same registered tools are exposed over two transports.
+The transport is selected with the `MCP_TRANSPORT` environment variable.
+
+| Transport | Selected by | Used for |
+|-----------|-------------|----------|
+| stdio | default | Local clients that launch the server as a subprocess |
+| Streamable HTTP | `MCP_TRANSPORT=http` | Remote hosting |
+
+The HTTP transport runs in **stateless** mode: no session identifiers are issued
+and a fresh server instance is created per request. This keeps concurrent requests
+from sharing JSON-RPC state and allows any instance to serve any request, so the
+deployment can scale horizontally and survive restarts.
+
+Responses are returned as plain JSON rather than SSE streams, because the current
+tools are all request/response and hold no long-lived connections.
+
+It is served by Node's built-in `node:http` module bridged to the SDK's
+`WebStandardStreamableHTTPServerTransport`. No HTTP framework is used, which keeps
+the "framework-independent implementation" principle in section 2 intact.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MCP_TRANSPORT` | `stdio` | Set to `http` for remote hosting |
+| `PORT` | `3000` | HTTP listen port |
+| `HOST` | `0.0.0.0` | Bind address; `0.0.0.0` keeps the port reachable from outside a container |
+| `MCP_ALLOWED_ORIGINS` | unset | Comma-separated `Origin` allowlist; unset allows any origin |
+
+The endpoint is `POST /mcp`. A `GET /health` route is provided for platform
+liveness probes.
+
+### Security notes
+
+- `MCP_ALLOWED_ORIGINS` should be set in production. Without it, a browser page can
+  POST to the endpoint (DNS rebinding).
+- Request bodies are capped at 1 MB to prevent memory exhaustion on a public endpoint.
+- There is no authentication. The endpoint is read-only over synthetic data, so this
+  is an accepted tradeoff for the current scope rather than a production posture.
+
+---
+
 # 4. Available Tools
 
-The server exposes four tools.
+The server currently exposes three tools.
 
-| Tool | Purpose |
-|------|---------|
-| investigate_order | Diagnose why an order cannot proceed through fulfillment |
-| execute_resolution | Execute a predefined operational resolution |
-| get_order_timeline | Display the lifecycle events of an order |
-| find_orders_needing_attention | Return orders requiring operational review |
+| Tool | Purpose | Status |
+|------|---------|--------|
+| investigate_order | Diagnose why an order cannot proceed through fulfillment | Implemented |
+| list_blocked_orders | Return every order currently held in BLOCKED status | Implemented |
+| get_order_timeline | Display the lifecycle events of an order | Implemented |
+| execute_resolution | Execute a predefined operational resolution | Planned |
 
 Each tool is designed around an operational task rather than CRUD functionality.
+
+All implemented tools are read-only and are annotated with `readOnlyHint`, so clients
+may call them without a write confirmation prompt.
 
 ---
 
@@ -107,46 +152,39 @@ Investigates an order across payment, inventory, and shipment systems to determi
   "orderId": "ORD-102",
   "status": "BLOCKED",
   "rootCause": "Payment Failed",
-  "confidence": 0.96,
-  "evidence": [
-    "Payment authorization failed",
-    "Inventory available",
-    "Shipment not created"
-  ],
-  "recommendedAction": "retry_payment"
+  "explanation": "Card declined by issuing bank",
+  "recommendation": "Retry the payment or ask the customer to use another payment method."
 }
 ```
+
+`rootCause` is one of a fixed set: `Payment Failed`, `Payment Pending`,
+`Inventory Unavailable`, `Shipment Not Created`, or `No Issues Found`. The
+constrained set is declared in the tool's output schema so the model cannot
+invent a diagnosis.
 
 ---
 
-## 5.2 execute_resolution
+## 5.2 list_blocked_orders
 
 ### Description
 
-Executes a predefined operational action for an order.
-
-### Supported Actions
-
-- retry_payment
-- release_inventory
-- recreate_shipment
+Lists every order currently held in BLOCKED status, together with the customer
+name. This is the entry point for operational triage: it reports *that* an order
+is blocked, not *why*. `investigate_order` supplies the reason for a single order.
 
 ### Input
 
-```json
-{
-  "orderId": "ORD-102",
-  "action": "retry_payment"
-}
-```
+No arguments.
 
 ### Output
 
 ```json
 {
-  "success": true,
-  "message": "Payment retry completed.",
-  "updatedStatus": "READY_FOR_FULFILLMENT"
+  "orders": [
+    { "orderId": "ORD-102", "customerName": "Bob", "status": "BLOCKED" },
+    { "orderId": "ORD-103", "customerName": "Charlie", "status": "BLOCKED" },
+    { "orderId": "ORD-104", "customerName": "David", "status": "BLOCKED" }
+  ]
 }
 ```
 
@@ -173,44 +211,52 @@ Returns the important lifecycle events associated with an order.
   "orderId": "ORD-102",
   "timeline": [
     {
-      "time": "2026-07-25T10:00:00Z",
-      "event": "Order Created"
+      "time": "2026-07-28T10:00:00.000Z",
+      "event": "Order created"
     },
     {
-      "time": "2026-07-25T10:02:00Z",
-      "event": "Payment Failed"
-    },
-    {
-      "time": "2026-07-25T10:04:00Z",
-      "event": "Inventory Reserved"
+      "time": "2026-07-28T10:02:00.000Z",
+      "event": "Payment failed: card declined by issuing bank"
     }
   ]
 }
 ```
 
+Events are returned oldest-first. `time` is an ISO 8601 string, because JSON-RPC
+has no native date type.
+
 ---
 
-## 5.4 find_orders_needing_attention
+## 5.4 execute_resolution (planned)
 
 ### Description
 
-Returns orders that require immediate operational review.
+Executes a predefined operational action for an order. Not yet implemented — the
+current scope is limited to the read-only investigation workflow.
 
-### Example Response
+### Supported Actions
+
+- retry_payment
+- release_inventory
+- recreate_shipment
+
+### Input
 
 ```json
-[
-  {
-    "orderId": "ORD-102",
-    "priority": "HIGH",
-    "reason": "Payment Failed"
-  },
-  {
-    "orderId": "ORD-108",
-    "priority": "MEDIUM",
-    "reason": "Shipment Delayed"
-  }
-]
+{
+  "orderId": "ORD-102",
+  "action": "retry_payment"
+}
+```
+
+### Output
+
+```json
+{
+  "success": true,
+  "message": "Payment retry completed.",
+  "updatedStatus": "READY_FOR_FULFILLMENT"
+}
 ```
 
 ---
@@ -264,7 +310,13 @@ Every tool validates:
 - Supported actions
 - Existing order identifiers
 
-Invalid requests return structured validation errors before business logic is executed.
+Field-level validation is declared with Zod schemas and enforced by the MCP SDK
+before the handler runs, so malformed input never reaches a business service. The
+schemas are also published to the client as JSON Schema, letting the model
+construct valid calls in the first place.
+
+Identifier existence cannot be checked by a schema, so it is enforced by the
+service layer and reported through the error envelope in section 9.
 
 Example:
 
@@ -272,8 +324,8 @@ Example:
 {
   "success": false,
   "error": {
-    "code": "INVALID_ORDER_ID",
-    "message": "Order ORD-999 does not exist."
+    "code": "ORDER_NOT_FOUND",
+    "message": "Order ORD-999 was not found."
   }
 }
 ```
@@ -304,11 +356,17 @@ Errors are returned in a consistent format.
 {
   "success": false,
   "error": {
-    "code": "PAYMENT_NOT_FOUND",
-    "message": "Payment information for the order could not be located."
+    "code": "ORDER_NOT_FOUND",
+    "message": "Order ORD-999 was not found."
   }
 }
 ```
+
+The envelope is carried in a tool result with `isError: true`, rather than thrown.
+A thrown error would surface to the client as an opaque protocol failure; this form
+lets the model explain the failure to the user in plain language.
+
+Current codes: `ORDER_NOT_FOUND`, `BLOCKED_ORDERS_LOOKUP_FAILED`.
 
 This allows AI clients to explain failures clearly and consistently.
 
@@ -341,7 +399,7 @@ Traditional APIs expose resources:
 The MCP Server instead exposes operational capabilities:
 
 - investigate_order
-- execute_resolution
+- list_blocked_orders
 - get_order_timeline
 
 This allows AI models to work with business concepts instead of implementation details, improving both usability and maintainability.

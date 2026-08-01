@@ -275,9 +275,8 @@ Before submission, verify:
 - Seed data loads correctly.
 - MCP tools are discoverable.
 - `investigate_order` returns the correct diagnosis.
-- `execute_resolution` performs only allowed actions.
+- `list_blocked_orders` lists the expected orders.
 - `get_order_timeline` returns chronological events.
-- `find_orders_needing_attention` lists the expected orders.
 - Hosted MCP endpoint is accessible.
 
 ---

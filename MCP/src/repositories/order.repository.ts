@@ -1,4 +1,4 @@
-import { Prisma } from "../generated/prisma/client.js";
+import { Prisma, type OrderStatus } from "../generated/prisma/client.js";
 import prisma from "../lib/prisma.js";
 
 const orderInclude = {
@@ -20,10 +20,33 @@ export type OrderWithRelations = Prisma.OrderGetPayload<{
   include: typeof orderInclude;
 }>;
 
+export interface OrderSummary {
+  id: string;
+  customerName: string;
+  status: OrderStatus;
+}
+
 export class OrderRepository {
   async getAll(): Promise<OrderWithRelations[]> {
     return prisma.order.findMany({
       include: orderInclude,
+    });
+  }
+
+  /** Lean projection: list views never need payment, items or timeline. */
+  async getByStatus(status: OrderStatus): Promise<OrderSummary[]> {
+    return prisma.order.findMany({
+      where: {
+        status,
+      },
+      select: {
+        id: true,
+        customerName: true,
+        status: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
     });
   }
 

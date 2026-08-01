@@ -1,8 +1,9 @@
-import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { OrderStatus } from "../generated/prisma/client.js";
 import { InvestigationService } from "../services/investigation.service.js";
 import { ROOT_CAUSES } from "../types/investigation.js";
+import { toolError } from "./tool-result.js";
 
 const investigationService = new InvestigationService();
 
@@ -48,20 +49,4 @@ export function registerInvestigationTools(server: McpServer): void {
       }
     },
   );
-}
-
-/** Structured failure envelope so the model can explain errors consistently. */
-function toolError(code: string, error: unknown): CallToolResult {
-  const message =
-    error instanceof Error ? error.message : "Unexpected tool failure.";
-
-  return {
-    isError: true,
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({ success: false, error: { code, message } }),
-      },
-    ],
-  };
 }
