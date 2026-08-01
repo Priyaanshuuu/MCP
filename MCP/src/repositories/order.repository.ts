@@ -27,12 +27,6 @@ export interface OrderSummary {
 }
 
 export class OrderRepository {
-  async getAll(): Promise<OrderWithRelations[]> {
-    return prisma.order.findMany({
-      include: orderInclude,
-    });
-  }
-
   /** Lean projection: list views never need payment, items or timeline. */
   async getByStatus(status: OrderStatus): Promise<OrderSummary[]> {
     return prisma.order.findMany({

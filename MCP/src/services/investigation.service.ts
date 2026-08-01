@@ -4,6 +4,7 @@ import {
   type OrderWithRelations,
 } from "../repositories/order.repository.js";
 import type { Diagnosis, InvestigationResult } from "../types/investigation.js";
+import { OrderNotFoundError } from "./errors.js";
 
 export class InvestigationService {
   constructor(private readonly orderRepository = new OrderRepository()) {}
@@ -12,7 +13,7 @@ export class InvestigationService {
     const order = await this.orderRepository.getById(orderId);
 
     if (!order) {
-      throw new Error(`Order ${orderId} was not found.`);
+      throw new OrderNotFoundError(orderId);
     }
 
     return {
@@ -22,6 +23,7 @@ export class InvestigationService {
     };
   }
 }
+
 function diagnose(order: OrderWithRelations): Diagnosis {
   if (order.payment?.status === PaymentStatus.FAILED) {
     return {

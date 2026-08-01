@@ -1,6 +1,7 @@
 import { OrderStatus } from "../generated/prisma/client.js";
 import { OrderRepository } from "../repositories/order.repository.js";
 import type { BlockedOrder, OrderTimeline } from "../types/order.js";
+import { OrderNotFoundError } from "./errors.js";
 
 export class OrderService {
   constructor(private readonly orderRepository = new OrderRepository()) {}
@@ -19,7 +20,7 @@ export class OrderService {
     const order = await this.orderRepository.getById(orderId);
 
     if (!order) {
-      throw new Error(`Order ${orderId} was not found.`);
+      throw new OrderNotFoundError(orderId);
     }
 
     return {

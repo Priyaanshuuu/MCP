@@ -17,7 +17,7 @@ const allowedOrigins = (process.env["MCP_ALLOWED_ORIGINS"] ?? "")
 
 export function startHttpServer(port: number, host: string): void {
   const httpServer = createServer((req, res) => {
-    handle(req, res).catch((error: unknown) => {
+    handleRequest(req, res).catch((error: unknown) => {
       console.error("Unhandled request error:", error);
       if (!res.headersSent) {
         sendJson(res, 500, { error: "Internal server error" });
@@ -31,7 +31,7 @@ export function startHttpServer(port: number, host: string): void {
   });
 }
 
-async function handle(
+async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
@@ -58,6 +58,8 @@ async function handle(
 
   const body = await readBody(req);
   if (body === null) {
+    // Stop the client streaming a body we have already refused.
+    req.destroy();
     sendJson(res, 413, { error: "Request body too large" });
     return;
   }

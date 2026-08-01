@@ -130,6 +130,20 @@ describe("MCP server end to end", () => {
     assert.equal(payload.error.code, "ORDER_NOT_FOUND");
   });
 
+  it("uses ORDER_NOT_FOUND for the timeline tool too", async () => {
+    const response = await client.callTool("get_order_timeline", {
+      orderId: "ORD-999",
+    });
+
+    const payload = JSON.parse(response.result?.content?.[0]?.text ?? "{}") as {
+      error: { code: string };
+    };
+
+    // Must not be the tool's own fallback code: a missing order is not a
+    // lookup failure, and the model needs to tell those apart.
+    assert.equal(payload.error.code, "ORDER_NOT_FOUND");
+  });
+
   it("rejects an empty orderId before reaching the service", async () => {
     const response = await client.callTool("investigate_order", { orderId: "  " });
 
