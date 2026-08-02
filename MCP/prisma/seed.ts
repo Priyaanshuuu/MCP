@@ -7,7 +7,14 @@ import {
   ShipmentStatus,
 } from "../src/generated/prisma/client.js";
 
-process.loadEnvFile();
+// Render and other hosts inject env vars directly, with no .env file present.
+if (!process.env["DATABASE_URL"]) {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env present
+  }
+}
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env["DATABASE_URL"]!,
