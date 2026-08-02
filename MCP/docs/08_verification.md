@@ -160,7 +160,7 @@ Expected Result
 Root Cause:
 
 ```
-Shipment Pending
+Shipment Not Created
 ```
 
 Recommendation:

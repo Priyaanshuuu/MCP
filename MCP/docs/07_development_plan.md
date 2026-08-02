@@ -162,6 +162,23 @@ Host the MCP Server.
 
 Hosted MCP endpoint ready for evaluation.
 
+### Outcome
+
+Deployed to Render as a Node web service. Because the application lives in the
+`MCP/` subdirectory of the repository, the service is configured with a root
+directory of `MCP`; the build runs `prisma generate` before `tsc`, then pushes
+and seeds the schema.
+
+- Endpoint: `https://mcp-3-8eyx.onrender.com/mcp`
+- Health probe: `https://mcp-3-8eyx.onrender.com/health`
+
+Two constraints follow from the host rather than the design: the instance sleeps
+when idle on the free tier, so the first request after a pause is slow, and the
+SQLite file sits on ephemeral storage, so it is reseeded by the build on every
+deploy. Both are acceptable for a read-only demonstration.
+
+See `README.md` for the full deployment configuration and verification steps.
+
 ---
 
 # 4. Commit Strategy

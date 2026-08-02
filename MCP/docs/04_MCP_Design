@@ -366,7 +366,8 @@ The envelope is carried in a tool result with `isError: true`, rather than throw
 A thrown error would surface to the client as an opaque protocol failure; this form
 lets the model explain the failure to the user in plain language.
 
-Current codes: `ORDER_NOT_FOUND`, `BLOCKED_ORDERS_LOOKUP_FAILED`.
+Current codes: `ORDER_NOT_FOUND`, `INVESTIGATION_FAILED`,
+`BLOCKED_ORDERS_LOOKUP_FAILED`, `TIMELINE_LOOKUP_FAILED`.
 
 This allows AI clients to explain failures clearly and consistently.
 

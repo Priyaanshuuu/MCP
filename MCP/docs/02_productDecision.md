@@ -272,14 +272,19 @@ This keeps AI interactions focused on operational capabilities instead of implem
 
 ---
 
-# 7. Why Next.js?
+# 7. Why plain Node.js and no framework?
 
-Although the project does not require a frontend, Next.js provides:
+An earlier draft of this document proposed Next.js. That was dropped: the server
+exposes no frontend and no REST surface, so a full application framework would
+have added build complexity and dependencies for no functional gain.
 
-- Mature TypeScript tooling
-- Simple deployment
-- API capabilities (if required later)
-- Familiar development workflow
+The project runs on plain Node.js with TypeScript instead:
+
+- Mature TypeScript tooling without a framework build step
+- The MCP SDK already supplies both transports, so no HTTP framework is needed
+- The remote transport is Node's built-in `node:http` bridged to the SDK's
+  `WebStandardStreamableHTTPServerTransport` — no Express, Fastify or Hono
+- Five runtime dependencies in total, keeping the codebase reviewable
 
 The business logic remains framework-independent and can be moved to any Node.js runtime with minimal effort.
 
