@@ -9,7 +9,6 @@ import { createMcpServer } from "./mcp.js";
 const MCP_PATH = "/mcp";
 const MAX_BODY_BYTES = 1024 * 1024;
 
-/** Empty means "allow any origin"; set MCP_ALLOWED_ORIGINS in production. */
 const allowedOrigins = (process.env["MCP_ALLOWED_ORIGINS"] ?? "")
   .split(",")
   .map((origin) => origin.trim())
@@ -38,7 +37,6 @@ async function handleRequest(
   const host = req.headers.host ?? "localhost";
   const url = new URL(req.url ?? "/", `http://${host}`);
 
-  // Liveness probe for the hosting platform; must not require MCP headers.
   if (url.pathname === "/health") {
     sendJson(res, 200, { status: "ok" });
     return;
@@ -49,7 +47,6 @@ async function handleRequest(
     return;
   }
 
-  // Blocks browser-based DNS rebinding against the endpoint.
   const origin = req.headers.origin;
   if (origin && allowedOrigins.length > 0 && !allowedOrigins.includes(origin)) {
     sendJson(res, 403, { error: "Origin not allowed" });
@@ -58,14 +55,12 @@ async function handleRequest(
 
   const body = await readBody(req);
   if (body === null) {
-    // Stop the client streaming a body we have already refused.
+   
     req.destroy();
     sendJson(res, 413, { error: "Request body too large" });
     return;
   }
 
-  // Stateless: a dedicated server and transport per request keeps concurrent
-  // requests from sharing JSON-RPC state.
   const server = createMcpServer();
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

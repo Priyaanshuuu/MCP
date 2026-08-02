@@ -1,13 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { OrderNotFoundError } from "../services/errors.js";
 
-/**
- * Structured failure envelope so the model can explain errors consistently.
- *
- * Expected failures keep their specific code and message. Anything unexpected is
- * logged to stderr and reported generically, so internal details never reach the
- * model and a system fault is never mistaken for a missing order.
- */
 export function toolError(
   error: unknown,
   fallbackCode: string,

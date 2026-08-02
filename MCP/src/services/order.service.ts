@@ -25,7 +25,6 @@ export class OrderService {
 
     return {
       orderId: order.id,
-      // Already ordered oldest-first by the repository include.
       timeline: order.timeline.map((entry) => ({
         time: entry.timestamp.toISOString(),
         event: entry.event,

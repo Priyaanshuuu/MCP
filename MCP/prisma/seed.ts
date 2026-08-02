@@ -7,12 +7,10 @@ import {
   ShipmentStatus,
 } from "../src/generated/prisma/client.js";
 
-// Render and other hosts inject env vars directly, with no .env file present.
 if (!process.env["DATABASE_URL"]) {
   try {
     process.loadEnvFile();
   } catch {
-    // No .env present
   }
 }
 
