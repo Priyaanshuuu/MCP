@@ -10,6 +10,53 @@ root cause with supporting evidence and a recommended next step.
 
 ---
 
+**Stuck Fulfilment Order Investigation (Postgres / Neon)**
+
+This repository has been refactored to focus exclusively on the "Stuck
+Fulfilment Order Investigation" workflow and uses PostgreSQL (Neon) as the
+database backend. The MCP surface exposes a small, well-defined set of tools
+for investigating fulfilment delays and creating manager-review escalations.
+
+- Tools you'll use in this workflow:
+  - `list_stuck_fulfilment_orders` — returns orders that require manager review
+  - `investigate_order` — diagnostic evidence for a single order
+  - `get_order_timeline` — chronological fulfilment timeline for an order
+  - `create_manager_review_escalation` — create `ManagerEscalation` + `AuditLog` (write)
+
+- Typical testing flow (use the Inspector or curl against the running MCP):
+  1. Call `list_stuck_fulfilment_orders` (no args) and pick a returned `orderId`.
+  2. Call `investigate_order` with that `orderId` to review evidence and `requiresManagerReview`.
+  3. (Optional) Call `get_order_timeline` to inspect the event history.
+  4. Call `create_manager_review_escalation` with an `orderId` that has `requiresManagerReview: true`.
+
+- Example stuck orders in the seeded dataset: `FO-1006` (picking > 8h), `FO-1010` (carrier handoff delay). Use these when exercising the escalation flow.
+
+- Troubleshooting: if `create_manager_review_escalation` returns
+  `"Manager review is not required for this order."` it means the order
+  genuinely does not exceed SLA thresholds — first run `list_stuck_fulfilment_orders`
+  and only escalate orders returned by that tool.
+
+- Install / build / seed (Postgres/Neon users should set `DATABASE_URL` to their connection string):
+
+```bash
+npm install
+# Example for Neon/Postgres (set your actual connection URL):
+export DATABASE_URL="postgresql://user:pass@db.neon.com:5432/dbname"
+npm run build
+npm run db:generate
+npm run db:push
+npm run db:seed
+```
+
+- Run the Inspector to interact with the running MCP locally:
+
+```bash
+npx @modelcontextprotocol/inspector node build/index.js
+```
+
+- Quick note: if `npm install` fails with a missing package error, open `package.json` and ensure the Prisma adapter dependency is `@prisma/adapter-pg` (not `@prisma/adapter-ppg`).
+
+
 ## Live deployment
 
 | | |
