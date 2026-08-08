@@ -1,50 +1,26 @@
-import { Prisma, type OrderStatus } from "../generated/prisma/client.js";
+import { Prisma, type OrderState } from "../generated/prisma/client.js";
 import prisma from "../lib/prisma.js";
 
 const orderInclude = {
-  payment: true,
-  shipment: true,
-  items: {
-    include: {
-      inventory: true,
-    },
-  },
-  timeline: {
-    orderBy: {
-      timestamp: "asc",
-    },
-  },
+  fulfilment: true,
+  inventoryReservations: true,
+  managerEscalations: true,
+  auditLogs: true,
 } satisfies Prisma.OrderInclude;
 
-export type OrderWithRelations = Prisma.OrderGetPayload<{
+export type OrderWithFulfilment = Prisma.OrderGetPayload<{
   include: typeof orderInclude;
 }>;
 
 export interface OrderSummary {
   id: string;
+  orderNumber: string;
   customerName: string;
-  status: OrderStatus;
+  currentState: OrderState;
 }
 
 export class OrderRepository {
-  /** Lean projection: list views never need payment, items or timeline. */
-  async getByStatus(status: OrderStatus): Promise<OrderSummary[]> {
-    return prisma.order.findMany({
-      where: {
-        status,
-      },
-      select: {
-        id: true,
-        customerName: true,
-        status: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
-  }
-
-  async getById(orderId: string): Promise<OrderWithRelations | null> {
+  async getById(orderId: string): Promise<OrderWithFulfilment | null> {
     return prisma.order.findUnique({
       where: {
         id: orderId,

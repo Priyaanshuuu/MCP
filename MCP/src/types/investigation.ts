@@ -1,23 +1,26 @@
-import type { OrderStatus } from "../generated/prisma/client.js";
-export const ROOT_CAUSES = [
-  "Payment Failed",
-  "Payment Pending",
-  "Inventory Unavailable",
-  "Shipment Not Created",
-  "No Issues Found",
-] as const;
+import type { OrderState } from "../generated/prisma/client.js";
 
-export type RootCause = (typeof ROOT_CAUSES)[number];
+export type InvestigationCause =
+  | "PICKING_DELAY"
+  | "PACKING_DELAY"
+  | "CARRIER_HANDOFF_DELAY"
+  | "NO_DELAY";
+
+export interface InvestigationEvidenceItem {
+  checkpoint: "picking" | "packing" | "carrier_handoff";
+  thresholdHours: number;
+  elapsedHours: number;
+  exceeded: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+}
 
 export interface InvestigationResult {
   orderId: string;
-  status: OrderStatus;
-  rootCause: RootCause;
-  explanation: string;
-  recommendation: string;
+  currentState: OrderState;
+  evidence: InvestigationEvidenceItem[];
+  cause: InvestigationCause;
+  proposedNextAction: string;
+  requiresManagerReview: boolean;
+  escalationReason: string | null;
 }
-
-export type Diagnosis = Pick<
-  InvestigationResult,
-  "rootCause" | "explanation" | "recommendation"
->;
