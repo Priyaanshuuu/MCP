@@ -1,9 +1,13 @@
-import type { OrderStatus } from "../generated/prisma/client.js";
+import type { OrderState } from "../generated/prisma/client.js";
+import type { InvestigationCause } from "./investigation.js";
 
-export interface BlockedOrder {
+export interface StuckFulfilmentOrder {
   orderId: string;
+  orderNumber: string;
   customerName: string;
-  status: OrderStatus;
+  currentState: OrderState;
+  cause: InvestigationCause;
+  escalationReason: string;
 }
 
 export interface TimelineEntry {
@@ -14,4 +18,12 @@ export interface TimelineEntry {
 export interface OrderTimeline {
   orderId: string;
   timeline: TimelineEntry[];
+}
+
+export interface ManagerReviewEscalationResult {
+  orderId: string;
+  escalationId: string;
+  auditLogId: string;
+  reason: string;
+  createdAt: string;
 }

@@ -1,21 +1,25 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { OrderStatus } from "../generated/prisma/client.js";
+import { OrderState } from "../generated/prisma/client.js";
 import { OrderService } from "../services/order.service.js";
 import { toolError } from "./tool-result.js";
 
 const orderService = new OrderService();
 
-const listBlockedOrdersInput = z.object({});
+const emptyInput = z.object({});
 
-const listBlockedOrdersOutput = z.object({
-  orders: z.array(
-    z.object({
-      orderId: z.string(),
-      customerName: z.string(),
-      status: z.enum(OrderStatus),
-    }),
-  ),
+const stuckOrderSchema = z.object({
+  orderId: z.string(),
+  orderNumber: z.string(),
+  customerName: z.string(),
+  currentState: z.nativeEnum(OrderState),
+  cause: z.enum([
+    "PICKING_DELAY",
+    "PACKING_DELAY",
+    "CARRIER_HANDOFF_DELAY",
+    "NO_DELAY",
+  ]),
+  escalationReason: z.string(),
 });
 
 const getOrderTimelineInput = z.object({
@@ -23,44 +27,56 @@ const getOrderTimelineInput = z.object({
     .string()
     .trim()
     .min(1)
-    .describe("Identifier of the order, for example ORD-102."),
+    .describe("Identifier of the order, for example FO-1004."),
 });
 
 const getOrderTimelineOutput = z.object({
   orderId: z.string(),
   timeline: z.array(
     z.object({
-      time: z.string().describe("ISO 8601 timestamp of the event."),
+      time: z.string(),
       event: z.string(),
     }),
   ),
 });
 
+const createEscalationInput = z.object({
+  orderId: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("Identifier of the order requiring manager review."),
+});
+
+const createEscalationOutput = z.object({
+  orderId: z.string(),
+  escalationId: z.string(),
+  auditLogId: z.string(),
+  reason: z.string(),
+  createdAt: z.string(),
+});
+
 export function registerOrderTools(server: McpServer): void {
   server.registerTool(
-    "list_blocked_orders",
+    "list_stuck_fulfilment_orders",
     {
-      title: "List Blocked Orders",
+      title: "List Stuck Fulfilment Orders",
       description:
-        "Lists every order currently held in BLOCKED status, with the customer name. " +
-        "Use this to answer questions about which orders need attention, how many are " +
-        "stuck, or which customers are affected. It reports that an order is blocked " +
-        "but not why — call investigate_order for a specific order to get the cause. " +
-        "Takes no arguments and returns an empty list when nothing is blocked.",
-      inputSchema: listBlockedOrdersInput,
-      outputSchema: listBlockedOrdersOutput,
+        "Lists fulfilment orders that have exceeded SLA thresholds and require manager review.",
+      inputSchema: emptyInput,
+      outputSchema: z.object({ orders: z.array(stuckOrderSchema) }),
       annotations: { readOnlyHint: true },
     },
     async () => {
       try {
-        const orders = await orderService.listBlockedOrders();
+        const orders = await orderService.listStuckFulfilmentOrders();
 
         return {
           content: [{ type: "text", text: JSON.stringify({ orders }) }],
           structuredContent: { orders },
         };
       } catch (error) {
-        return toolError(error, "BLOCKED_ORDERS_LOOKUP_FAILED");
+        return toolError(error, "STUCK_FULFILMENT_ORDERS_LOOKUP_FAILED");
       }
     },
   );
@@ -70,10 +86,7 @@ export function registerOrderTools(server: McpServer): void {
     {
       title: "Get Order Timeline",
       description:
-        "Returns the recorded lifecycle events for a single order — creation, payment, " +
-        "fulfillment and delivery — oldest first. Use this to answer what happened to " +
-        "an order and when. It reports history, not diagnosis: use investigate_order " +
-        "to determine why an order is currently stuck.",
+        "Returns the fulfilment timeline for a single order, including any manager review escalations.",
       inputSchema: getOrderTimelineInput,
       outputSchema: getOrderTimelineOutput,
       annotations: { readOnlyHint: true },
@@ -88,6 +101,30 @@ export function registerOrderTools(server: McpServer): void {
         };
       } catch (error) {
         return toolError(error, "TIMELINE_LOOKUP_FAILED");
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_manager_review_escalation",
+    {
+      title: "Create Manager Review Escalation",
+      description:
+        "Creates the only permitted write action: a manager review escalation plus audit log record for a stuck fulfilment order.",
+      inputSchema: createEscalationInput,
+      outputSchema: createEscalationOutput,
+      annotations: { readOnlyHint: false },
+    },
+    async ({ orderId }) => {
+      try {
+        const escalation = await orderService.createManagerReviewEscalation(orderId);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(escalation) }],
+          structuredContent: escalation,
+        };
+      } catch (error) {
+        return toolError(error, "MANAGER_REVIEW_ESCALATION_CREATE_FAILED");
       }
     },
   );
