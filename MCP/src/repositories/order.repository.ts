@@ -54,6 +54,7 @@ export class OrderRepository {
           orderId,
           action: "MANAGER_REVIEW_ESCALATION_CREATED",
           reason,
+          createdBy: "MCP",
         },
       });
 

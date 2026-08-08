@@ -1,4 +1,3 @@
-import { OrderState } from "../generated/prisma/client.js";
 import { OrderRepository, type OrderWithFulfilment } from "../repositories/order.repository.js";
 import type {
   ManagerReviewEscalationResult,
@@ -6,7 +5,6 @@ import type {
   StuckFulfilmentOrder,
   TimelineEntry,
 } from "../types/order.js";
-import type { InvestigationResult } from "../types/investigation.js";
 import { InvestigationService } from "./investigation.service.js";
 import { OrderNotFoundError } from "./errors.js";
 
@@ -34,7 +32,8 @@ export class OrderService {
         customerName: order.customerName,
         currentState: order.currentState,
         cause: investigation.cause,
-        escalationReason: investigation.escalationReason ?? "Manager review required.",
+        escalationReason:
+          investigation.escalationReason ?? "Manager review required.",
       }));
   }
 
