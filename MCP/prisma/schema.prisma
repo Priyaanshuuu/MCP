@@ -4,90 +4,83 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  //url      = env("DATABASE_URL")
 }
 
-enum OrderStatus {
-  CREATED
-  BLOCKED
-  READY_FOR_FULFILLMENT
-  SHIPPED
-  DELIVERED
-}
-
-enum PaymentStatus {
-  PENDING
-  SUCCESS
-  FAILED
-}
-
-enum ShipmentStatus {
-  NOT_CREATED
-  CREATED
-  IN_TRANSIT
+enum OrderState {
+  AWAITING_PICK
+  PICKING
+  PACKING
+  AWAITING_CARRIER_HANDOFF
+  DISPATCHED
   DELIVERED
 }
 
 model Order {
-  id           String      @id
-  customerName String
-  status       OrderStatus
+  id            String   @id @default(cuid())
+  orderNumber   String   @unique
+  customerName   String
+  currentState   OrderState
 
-  payment      Payment?
-  shipment     Shipment?
-  items         OrderItem[]
-  timeline      TimelineEvent[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  fulfilment            Fulfilment?
+  inventoryReservations  InventoryReservation[]
+  managerEscalations     ManagerEscalation[]
+  auditLogs              AuditLog[]
 }
 
-model Payment {
-  id            String        @id @default(cuid())
-  status        PaymentStatus
-  failureReason String?
+model Fulfilment {
+  id                         String   @id @default(cuid())
+  orderId                    String   @unique
+  order                      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  orderId       String @unique
-  order         Order  @relation(fields: [orderId], references: [id])
+  carrierName                String?
+  pickingStartedAt           DateTime?
+  pickedAt                   DateTime?
+  packingStartedAt           DateTime?
+  packedAt                   DateTime?
+  carrierHandoffRequestedAt  DateTime?
+  carrierHandoffCompletedAt  DateTime?
+  dispatchedAt               DateTime?
+
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
 
-model Shipment {
-  id        String          @id @default(cuid())
-  status    ShipmentStatus
-  carrier   String?
+model InventoryReservation {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  orderId   String @unique
-  order     Order  @relation(fields: [orderId], references: [id])
+  sku         String
+  quantity    Int
+  reservedAt  DateTime @default(now())
+  releasedAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-model Inventory {
-  sku        String @id
-  available  Int
-  reserved   Int
-  warehouse  String
+model ManagerEscalation {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  items      OrderItem[]
+  reason      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-model OrderItem {
-  id        String @id @default(cuid())
+model AuditLog {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  quantity  Int
-
-  orderId   String
-  order     Order @relation(fields: [orderId], references: [id])
-
-  sku        String
-  inventory  Inventory @relation(fields: [sku], references: [sku])
-}
-
-model TimelineEvent {
-  id        String   @id @default(cuid())
-
-  event     String
-
-  timestamp DateTime @default(now())
-
-  orderId   String
-  order     Order @relation(fields: [orderId], references: [id])
+  timestamp   DateTime @default(now())
+  action      String
+  reason      String
+  createdBy   String   @default("MCP")
 }

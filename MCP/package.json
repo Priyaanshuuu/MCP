@@ -23,9 +23,11 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@prisma/adapter-better-sqlite3": "^7.9.1",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/adapter-ppg": "^7.9.1",
     "@prisma/client": "^7.9.1",
-    "better-sqlite3": "^13.0.2",
+    "pg": "^8.22.0",
+    "pg-pool": "^3.14.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

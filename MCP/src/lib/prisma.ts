@@ -1,5 +1,6 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.js";
+import { Pool } from "pg";
 
 if (!process.env["DATABASE_URL"]) {
   try {
@@ -17,7 +18,8 @@ if (!url) {
   );
 }
 
-const adapter = new PrismaBetterSqlite3({ url });
+const pool = new Pool({ connectionString: url });
+const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
 

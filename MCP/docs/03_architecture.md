@@ -292,29 +292,21 @@ src/
 
         investigate-order.tool.ts
 
-        execute-resolution.tool.ts
+        tool-result.ts
 
-        get-order-timeline.tool.ts
-
-        find-orders-needing-attention.tool.ts
+        order.tool.ts
 
     services/
 
         investigation.service.ts
 
-        resolution.service.ts
+        order.service.ts
 
-        timeline.service.ts
+        error.service.ts
 
     repositories/
 
         order.repository.ts
-
-        payment.repository.ts
-
-        shipment.repository.ts
-
-        inventory.repository.ts
 
     lib/
 
