@@ -31,27 +31,36 @@ export class OrderRepository {
     });
   }
 
-  async getById(orderId: string): Promise<OrderWithFulfilment | null> {
+  async getById(orderNumber: string): Promise<OrderWithFulfilment | null> {
     return prisma.order.findUnique({
       where: {
-        id: orderId,
+        orderNumber,
       },
       include: orderInclude,
     });
   }
 
-  async createManagerReviewEscalation(orderId: string, reason: string) {
+  async createManagerReviewEscalation(orderNumber: string, reason: string) {
+    const order = await prisma.order.findUnique({
+      where: { orderNumber },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new Error(`Order ${orderNumber} not found.`);
+    }
+
     return prisma.$transaction(async (tx) => {
       const escalation = await tx.managerEscalation.create({
         data: {
-          orderId,
+          orderId: order.id,
           reason,
         },
       });
 
       const auditLog = await tx.auditLog.create({
         data: {
-          orderId,
+          orderId: order.id,
           action: "MANAGER_REVIEW_ESCALATION_CREATED",
           reason,
           createdBy: "MCP",

@@ -20,7 +20,7 @@ export class OrderService {
     const investigated = await Promise.all(
       candidates.map(async (order) => ({
         order,
-        investigation: await this.investigationService.investigateOrder(order.id),
+        investigation: await this.investigationService.investigateOrder(order.orderNumber),
       })),
     );
 

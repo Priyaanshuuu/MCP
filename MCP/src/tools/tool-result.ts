@@ -9,9 +9,10 @@ export function toolError(
     return envelope("ORDER_NOT_FOUND", error.message);
   }
 
-  console.error("Tool failure:", error);
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Tool failure:", message, error);
 
-  return envelope(fallbackCode, "The request could not be completed.");
+  return envelope(fallbackCode, message || "The request could not be completed.");
 }
 
 function envelope(code: string, message: string): CallToolResult {

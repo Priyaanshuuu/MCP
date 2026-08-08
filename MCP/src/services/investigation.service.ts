@@ -25,7 +25,7 @@ export class InvestigationService {
     const finding = determineFinding(order, now, evidence);
 
     return {
-      orderId: order.id,
+      orderId: order.orderNumber,
       currentState: order.currentState,
       evidence,
       cause: finding.cause,
